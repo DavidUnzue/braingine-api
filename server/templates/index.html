@@ -94,19 +94,23 @@
         </div>
       </div>
     </div>
-    <div class="content row">
-      <ul class="menu" id="experiment-tabs">
-        <li class="is-active"><a class="experiment-information">Information</a></li>
-        <li><a class="experiment-raw-files">Raw data</a></li>
-        <li><a class="experiment-analysis-files">Analysis results</a></li>
-      </ul>
-      <div id="experiment-data">
-        <div id="experiment-information">
-          <p><strong>Experiment type:</strong> <%= exp_type %></p>
-          <p><strong>Submitted on:</strong> <%= date %></p>
-          <p><strong>Experimenter:</strong> <%= experimenter %></p>
-          <p><strong>Species:</strong> <%= species %></p>
-          <p><strong>Tissue:</strong> <%= tissue %></p>
+    <div class="content expanded row">
+      <div id="experiment-tabs">
+        <ul class="menu row">
+          <li class="is-active"><a class="experiment-information">Information</a></li>
+          <li><a class="experiment-raw-files">Raw data</a></li>
+          <li><a class="experiment-analysis-files">Analysis results</a></li>
+        </ul>
+      </div>
+      <div id="experiment-data" class="row">
+        <div class="small-12 column">
+          <div id="experiment-information">
+            <p><strong>Experiment type:</strong> <%= exp_type %></p>
+            <p><strong>Submitted on:</strong> <%= date %></p>
+            <p><strong>Experimenter:</strong> <%= experimenter %></p>
+            <p><strong>Species:</strong> <%= species %></p>
+            <p><strong>Tissue:</strong> <%= tissue %></p>
+          </div>
         </div>
       </div>
     </div>
@@ -114,27 +118,29 @@
 
 
   <script type="text/template" id="experiment-files-item-tmpl">
-    <h4 class="list-group-item-heading">
+    <a class="accordion-title">
       <%= file_name %>
-    </h4>
-    <p class="list-group-item-text">File path: <i><%= file_path %></i></p>
-    <p class="list-group-item-text">File size: <i><%= file_size %></i></p>
-    <br />
-    <div class="btn-group experiment-file-actions">
-      <button type="button" class="btn btn-default dropdown-toggle" data-toggle="dropdown" aria-haspopup="true" aria-expanded="false">
-        Actions <span class="caret"></span>
-      </button>
-      <ul class="dropdown-menu">
-        <!--<li><a class="visualize-scatterplot">Visualize scatterplot</a></li>-->
-        <li><a class="visualize-expression">Visualize gene expression</a></li>
-        <li><a class="download">Download</a></li>
-        <li role="separator" class="divider"></li>
-        <li><a class="remove">Remove</a></li>
-      </ul>
+    </a>
+    <div class="accordion-content" data-tab-content>
+      <p class="list-group-item-text">File path: <i><%= file_path %></i></p>
+      <p class="list-group-item-text">File size: <i><%= file_size %></i></p>
+      <br />
+      <div class="btn-group experiment-file-actions">
+        <button type="button" class="btn btn-default dropdown-toggle" data-toggle="dropdown" aria-haspopup="true" aria-expanded="false">
+          Actions <span class="caret"></span>
+        </button>
+        <ul class="dropdown-menu">
+          <!--<li><a class="visualize-scatterplot">Visualize scatterplot</a></li>-->
+          <li><a class="visualize-expression">Visualize gene expression</a></li>
+          <li><a class="download">Download</a></li>
+          <li role="separator" class="divider"></li>
+          <li><a class="remove">Remove</a></li>
+        </ul>
+      </div>
     </div>
     <br />
     <!-- MODAL -->
-    <div class="modal fade visualization-modal" tabindex="-1" role="dialog" aria-labelledby="modal-title">
+    <div class="reveal visualization-modal" id="" tabindex="-1" role="dialog" aria-labelledby="modal-title">
       <div class="modal-dialog modal-lg">
         <div class="modal-content">
           <div class="modal-header">

@@ -11,8 +11,8 @@ def create_app(config_name):
     # load the configuration file from the instance folder.
     # silent=True is optional and used to suppress the error in case config.cfg is not found
     app.config.from_pyfile('config.cfg', silent=True)
-    config[config_name].init_app(app)
 
+    config[config_name].init_app(app)
     db.init_app(app)
 
     # Import blueprints

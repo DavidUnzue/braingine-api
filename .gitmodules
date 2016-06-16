@@ -1,3 +1,0 @@
-[submodule "server/static"]
-	path = server/static
-	url = https://github.molgen.mpg.de/Butler/butler-client.git

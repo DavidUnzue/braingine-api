@@ -17,21 +17,6 @@ from . import api
 # allow use of or syntax for sql queries
 from sqlalchemy import or_
 
-# SSH connection variables
-try:
-    SSH_SERVER = os.environ['SSH_SERVER']
-except KeyError as e:
-    SSH_SERVER = ""
-
-try:
-    SSH_USER = os.environ['SSH_USER']
-except KeyError as e:
-    SSH_USER = ""
-
-try:
-    SSH_PASSWORD = os.environ['SSH_PASSWORD']
-except KeyError as e:
-    SSH_PASSWORD = ""
 
 parser = reqparse.RequestParser()
 # The default argument type is a unicode string. This will be str in python3 and unicode in python2.
@@ -241,7 +226,7 @@ class ExperimentAnalysisController(Resource):
 
     def connect_ssh(self):
         s = pxssh.pxssh()
-        s.login(SSH_SERVER, SSH_USER, SSH_PASSWORD) # TODO: handle password securely
+        s.login(current_app.config.get('SSH_SERVER'), current_app.config.get('SSH_USER'), current_app.config.get('SSH_PASSWORD'))
         return s
 
     def post(self, experiment_id):
