@@ -9,6 +9,8 @@ itsdangerous==0.24
 Jinja2==2.8
 Mako==1.0.4
 MarkupSafe==0.23
+marshmallow==2.7.3
+marshmallow-jsonapi==0.7.1
 pexpect==4.0.1
 psycopg2==2.6.1
 ptyprocess==0.5.1
