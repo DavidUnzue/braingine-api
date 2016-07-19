@@ -21,7 +21,7 @@ class Config(object):
 
 class ProductionConfig(Config):
     DEBUG = False
-    SQLALCHEMY_DATABASE_URI = 'postgresql://'
+    SQLALCHEMY_DATABASE_URI = 'postgresql://localhost/butler'
 
     @classmethod
     def init_app(cls, app):
@@ -32,12 +32,12 @@ class DevelopmentConfig(Config):
     DEVELOPMENT = True
     DEBUG = True
     ERROR_404_HELP = False
-    SQLALCHEMY_DATABASE_URI = 'postgresql://'
+    SQLALCHEMY_DATABASE_URI = 'postgresql://localhost/butler_dev'
 
 
 class TestingConfig(Config):
     TESTING = True
-    SQLALCHEMY_DATABASE_URI = 'postgresql://'
+    SQLALCHEMY_DATABASE_URI = 'postgresql://localhost/butler_test'
 
 
 config = {

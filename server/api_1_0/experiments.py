@@ -32,8 +32,8 @@ parser.add_argument('q', location=['args'])
 
 experiment_fields = {
     'id': fields.Integer,
-    'date_created': fields.DateTime,
-    'date_modified': fields.DateTime,
+    'date_created': fields.DateTime(dt_format='iso8601'), #iso8601 format, same as postgres db is using
+    'date_modified': fields.DateTime(dt_format='iso8601'),
     'exp_type': fields.String,
     'name': fields.String,
     'date': fields.String,
@@ -45,8 +45,8 @@ experiment_fields = {
 
 experiment_file_fields = {
     'id': fields.Integer,
-    'date_created': fields.DateTime,
-    'date_modified': fields.DateTime,
+    'date_created': fields.DateTime(dt_format='iso8601'),
+    'date_modified': fields.DateTime(dt_format='iso8601'),
     'experiment_id': fields.Integer,
     'file_name': fields.String,
     'file_path': fields.String,

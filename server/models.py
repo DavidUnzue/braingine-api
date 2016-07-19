@@ -35,7 +35,7 @@ class Experiment(Base):
     # Attributes
     exp_type = db.Column(db.String(255))
     name = db.Column(db.String(255))
-    date = db.Column(db.Date)
+    date = db.Column(db.String(255)) #TODO use Date type here
     experimenter = db.Column(db.String(255))
     species = db.Column(db.String(255))
     tissue = db.Column(db.String(255))
@@ -62,7 +62,7 @@ class Experiment(Base):
 class ExperimentSchema(BaseSchema):
     name = fields.Str()
     exp_type = fields.Str()
-    date = fields.Date()
+    date = fields.String()
     experimenter = fields.Str()
     species = fields.Str()
     tissue = fields.Str()
