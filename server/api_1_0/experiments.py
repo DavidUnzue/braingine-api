@@ -94,7 +94,7 @@ class ExperimentListController(Resource):
 class ExperimentController(Resource):
 
     # For a given file, return whether it's an allowed type or not
-    def allowed_file(self, filename):
+    def is_allowed_file(self, filename):
         return '.' in filename and \
                filename.rsplit('.', 1)[1] in current_app.config.get('ALLOWED_EXTENSIONS')
 
@@ -102,13 +102,13 @@ class ExperimentController(Resource):
     def get(self, experiment_id):
         experiment = Experiment.query.get(experiment_id)
         if not experiment:
-            abort(404, {'message': "Experiment {} doesn't exist".format(experiment_id)})
+            abort(404, "Experiment {} doesn't exist".format(experiment_id))
         return experiment
 
     def delete(self, experiment_id):
         experiment = Experiment.query.get(experiment_id)
         if not experiment:
-            abort(404, {'message': "Experiment {} doesn't exist".format(experiment_id)})
+            abort(404, "Experiment {} doesn't exist".format(experiment_id))
         db.session.delete(experiment)
         db.session.commit()
         return {}, 204
@@ -118,7 +118,7 @@ class ExperimentController(Resource):
         parsed_args = parser.parse_args()
         experiment = Experiment.query.get(experiment_id)
         if not experiment:
-            abort(404, {'message': "Experiment {} doesn't exist".format(experiment_id)})
+            abort(404, "Experiment {} doesn't exist".format(experiment_id))
         experiment.name = parsed_args['name']
         experiment.experimenter = parsed_args['experimenter']
         db.session.add(experiment)
@@ -128,7 +128,7 @@ class ExperimentController(Resource):
 class ExperimentFileListController(Resource):
 
     # For a given file, return whether it's an allowed type or not
-    def allowed_file(self, filename):
+    def is_allowed_file(self, filename):
         return '.' in filename and \
                filename.rsplit('.', 1)[1] in current_app.config.get('ALLOWED_EXTENSIONS')
 
@@ -150,13 +150,13 @@ class ExperimentFileListController(Resource):
             os.makedirs(file_folder)
         except OSError:
             if not os.path.isdir(file_folder):
-                abort(404, {'message': "Unable to access {}".format(file_folder)})
+                abort(404, "Unable to access {}".format(file_folder))
 
         # define file path
         file_path = os.path.join(file_folder, file_name)
 
         # handle chunked file upload
-        if parsed_args['Content-Range'] and newFile and self.allowed_file(newFile.filename):
+        if parsed_args['Content-Range'] and newFile and self.is_allowed_file(newFile.filename):
             # extract byte numbers from Content-Range header string
             content_range = parsed_args['Content-Range']
             range_str = content_range.split(' ')[1]
@@ -182,7 +182,7 @@ class ExperimentFileListController(Resource):
 
         # handle small/complete file upload
         # Check if the file is one of the allowed types/extensions
-        elif newFile and self.allowed_file(newFile.filename):
+        elif newFile and self.is_allowed_file(newFile.filename):
             newFile.save(file_path)
             file_size = os.stat(file_path).st_size
             experimentFile = ExperimentFile(experiment_id=experiment_id, file_name=file_name, file_path=file_path, file_size=file_size)
@@ -190,7 +190,7 @@ class ExperimentFileListController(Resource):
             db.session.commit()
             return marshal(experimentFile, experiment_file_fields), 201
         else:
-            abort(404, {'message': "No file sent"})
+            abort(404, "No file sent")
 
     @marshal_with(experiment_file_fields)
     def get(self, experiment_id):
