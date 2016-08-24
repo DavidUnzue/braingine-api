@@ -3,12 +3,12 @@
 
 import urllib, os, werkzeug
 from flask import abort, send_from_directory, make_response, current_app
-from flask.ext.restful import Resource, reqparse, fields, marshal_with, marshal
+from flask.ext.restful import Resource, reqparse, fields
 # Import db instance
 from server import db
 # Import models from models.py file
 # IMPORTANT!: this has to be done after the DB gets instantiated and in this case imported too
-from server.models import Experiment, ExperimentFile
+from server.models import Experiment, ExperimentSchema, ExperimentFile, ExperimentFileSchema
 from server.utils import sha1_string
 # ssh package
 from pexpect import pxssh
@@ -17,6 +17,8 @@ from . import api
 # allow use of or syntax for sql queries
 from sqlalchemy import or_
 
+experiment_schema = ExperimentSchema()
+experiment_file_schema = ExperimentFileSchema()
 
 parser = reqparse.RequestParser()
 # The default argument type is a unicode string. This will be str in python3 and unicode in python2.
@@ -26,39 +28,17 @@ parser.add_argument('date', location=['form', 'json'])
 parser.add_argument('experimenter', location=['form', 'json'])
 parser.add_argument('species', location=['form', 'json'])
 parser.add_argument('tissue', location=['form', 'json'])
+parser.add_argument('information', location=['form', 'json'])
 parser.add_argument('files[]', action='append', type=werkzeug.datastructures.FileStorage, location=['files'])
 parser.add_argument('Content-Range', location=['headers'])
 parser.add_argument('q', location=['args'])
 
-experiment_fields = {
-    'id': fields.Integer,
-    'date_created': fields.DateTime(dt_format='iso8601'), #iso8601 format, same as postgres db is using
-    'date_modified': fields.DateTime(dt_format='iso8601'),
-    'exp_type': fields.String,
-    'name': fields.String,
-    'date': fields.String,
-    'experimenter': fields.String,
-    'species': fields.String,
-    'tissue': fields.String
-    #'uri': fields.Url('experiment')
-}
-
-experiment_file_fields = {
-    'id': fields.Integer,
-    'date_created': fields.DateTime(dt_format='iso8601'),
-    'date_modified': fields.DateTime(dt_format='iso8601'),
-    'experiment_id': fields.Integer,
-    'file_name': fields.String,
-    'file_path': fields.String,
-    'file_size': fields.Integer,
-    'file_group': fields.String,
-}
 
 class ExperimentListController(Resource):
-    # do marshalling with marshal function instead of marshal_with decorator in order to be able to return empty object,
-    # otherwise the decorator is marshalling also the empty object and applying the experiment_fields with NULL values
-    def get(self, page=1):
+    def get(self):
+        parser.add_argument('page', type=int, default=1, location=['args'])
         parsed_args = parser.parse_args()
+        page = parsed_args['page']
         if parsed_args['q']:
             # querystring from url should be decoded here
             # see https://unspecified.wordpress.com/2008/05/24/uri-encoding/
@@ -68,15 +48,23 @@ class ExperimentListController(Resource):
             # use "ilike" for searching case unsensitive
             experiments = Experiment.query.filter(or_(Experiment.name.ilike('%'+ search_query + '%'), Experiment.experimenter.ilike('%'+ search_query + '%'), Experiment.exp_type.ilike('%'+ search_query + '%'), Experiment.species.ilike('%'+ search_query + '%'), Experiment.tissue.ilike('%'+ search_query + '%'))).all()
         else:
-            #experiments = Experiment.query.paginate(page, 10).items
-            experiments = Experiment.query.all()
+            pagination = Experiment.query.paginate(page, 5)
+            experiments = pagination.items
+            #experiments = Experiment.query.all()
+            prev = None
+            if pagination.has_prev:
+                prev = api.url_for(self, page=page-1, _external=True)
+            next = None
+            if pagination.has_next:
+                next = api.url_for(self, page=page+1, _external=True)
 
         if not experiments:
             return [], 200
 
-        return marshal(experiments, experiment_fields), 200
+        result = experiment_schema.dump(experiments, many=True).data
 
-    @marshal_with(experiment_fields)
+        return result, 200
+
     def post(self):
         parsed_args = parser.parse_args()
         exp_type = parsed_args['exp_type']
@@ -85,11 +73,12 @@ class ExperimentListController(Resource):
         experimenter = parsed_args['experimenter']
         species = parsed_args['species']
         tissue = parsed_args['tissue']
-        experiment = Experiment(exp_type=exp_type, name=name, date=date, experimenter=experimenter, species=species, tissue=tissue)
+        information = parsed_args['information']
+        experiment = Experiment(exp_type=exp_type, name=name, date=date, experimenter=experimenter, species=species, tissue=tissue, information=information)
         db.session.add(experiment)
         db.session.commit()
-        return experiment, 201
-
+        result = experiment_schema.dump(experiment, many=False).data
+        return result, 201
 
 class ExperimentController(Resource):
 
@@ -98,12 +87,12 @@ class ExperimentController(Resource):
         return '.' in filename and \
                filename.rsplit('.', 1)[1] in current_app.config.get('ALLOWED_EXTENSIONS')
 
-    @marshal_with(experiment_fields)
     def get(self, experiment_id):
         experiment = Experiment.query.get(experiment_id)
         if not experiment:
             abort(404, "Experiment {} doesn't exist".format(experiment_id))
-        return experiment
+        result = experiment_schema.dump(experiment).data
+        return result, 200
 
     def delete(self, experiment_id):
         experiment = Experiment.query.get(experiment_id)
@@ -113,7 +102,6 @@ class ExperimentController(Resource):
         db.session.commit()
         return {}, 204
 
-    @marshal_with(experiment_fields)
     def put(self, experiment_id):
         parsed_args = parser.parse_args()
         experiment = Experiment.query.get(experiment_id)
@@ -123,7 +111,8 @@ class ExperimentController(Resource):
         experiment.experimenter = parsed_args['experimenter']
         db.session.add(experiment)
         db.session.commit()
-        return experiment, 200
+        result = experiment_schema.dump(experiment).data
+        return result, 200
 
 class ExperimentFileListController(Resource):
 
@@ -136,6 +125,8 @@ class ExperimentFileListController(Resource):
         # get uploaded file
         parsed_args = parser.parse_args()
         newFile = parsed_args['files[]'][0]
+        # http://werkzeug.pocoo.org/docs/0.11/datastructures/#werkzeug.datastructures.FileStorage
+        mimetype = newFile.mimetype;
 
         # Make the filename safe, remove unsupported chars
         file_name = werkzeug.secure_filename(newFile.filename)
@@ -172,10 +163,11 @@ class ExperimentFileListController(Resource):
             # check if these are the last bytes
             # if so, create experiment
             if end_bytes >= (total_bytes - 1):
-                experimentFile = ExperimentFile(experiment_id=experiment_id, file_name=file_name, file_path=file_path, file_size=total_bytes)
+                experimentFile = ExperimentFile(experiment_id=experiment_id, file_name=file_name, file_path=file_path, file_size=total_bytes, file_mimetype=mimetype)
                 db.session.add(experimentFile)
                 db.session.commit()
-                return marshal(experimentFile, experiment_file_fields), 201
+                result = experiment_file_schema.dump(experimentFile, many=False).data
+                return result, 201
             # otherwise, return range as string
             else:
                 return range_str, 201
@@ -185,14 +177,14 @@ class ExperimentFileListController(Resource):
         elif newFile and self.is_allowed_file(newFile.filename):
             newFile.save(file_path)
             file_size = os.stat(file_path).st_size
-            experimentFile = ExperimentFile(experiment_id=experiment_id, file_name=file_name, file_path=file_path, file_size=file_size)
+            experimentFile = ExperimentFile(experiment_id=experiment_id, file_name=file_name, file_path=file_path, file_size=file_size, file_mimetype=mimetype)
             db.session.add(experimentFile)
             db.session.commit()
-            return marshal(experimentFile, experiment_file_fields), 201
+            result = experiment_file_schema.dump(experimentFile, many=False).data
+            return result, 201
         else:
             abort(404, "No file sent")
 
-    @marshal_with(experiment_file_fields)
     def get(self, experiment_id):
         # access querystring arguments to filter files by group
         parser.add_argument('group', location=['args'])
@@ -207,7 +199,8 @@ class ExperimentFileListController(Resource):
         experiment_files = ExperimentFile.query.filter_by(**filters).all()
         if not experiment_files:
             return [], 200
-        return experiment_files
+        result = experiment_file_schema.dump(experiment_files, many=True).data
+        return result, 200
 
 
 class ExperimentFileController(Resource):

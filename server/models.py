@@ -1,5 +1,6 @@
-from flask import current_app
+from flask import current_app, url_for, json
 from . import db
+from api_1_0 import api
 import os
 from utils import silent_remove, sha1_string
 from marshmallow_jsonapi import Schema, fields
@@ -15,16 +16,16 @@ class Base(db.Model):
     __abstract__  = True
 
     id            = db.Column(db.Integer, primary_key=True)
-    date_created  = db.Column(db.DateTime(timezone=True),  default=db.func.current_timestamp())
-    date_modified = db.Column(db.DateTime(timezone=True),  default=db.func.current_timestamp(),
+    created_at  = db.Column(db.DateTime(timezone=True),  default=db.func.current_timestamp())
+    updated_at = db.Column(db.DateTime(timezone=True),  default=db.func.current_timestamp(),
                                            onupdate=db.func.current_timestamp())
 
 
 # Marshmallow schema for base model
 class BaseSchema(Schema):
     id = fields.Integer(dump_only=True)
-    date_created = fields.DateTime()
-    date_modified = fields.DateTime()
+    created_at = fields.DateTime(dump_only=True)
+    updated_at = fields.DateTime(dump_only=True)
 
 
 # Define Experiment model
@@ -39,6 +40,7 @@ class Experiment(Base):
     experimenter = db.Column(db.String(255))
     species = db.Column(db.String(255))
     tissue = db.Column(db.String(255))
+    information = db.Column(db.Text)
 
     # one-to-many relationship to ExperimentFile
     # one experiments can contain many files, one file belongs only to one experiment
@@ -46,13 +48,14 @@ class Experiment(Base):
                                 lazy='select', cascade="all, delete-orphan")
 
     # constructor
-    def __init__(self, exp_type, name, date, experimenter, species, tissue):
+    def __init__(self, exp_type, name, date, experimenter, species, tissue, information):
         self.exp_type = exp_type
         self.name = name
         self.date = date
         self.experimenter = experimenter
         self.species = species
         self.tissue = tissue
+        self.information = information
 
     def __repr__(self):
         return '<Experiment %d>' % self.id
@@ -62,10 +65,11 @@ class Experiment(Base):
 class ExperimentSchema(BaseSchema):
     name = fields.Str()
     exp_type = fields.Str()
-    date = fields.String()
+    date = fields.Str()
     experimenter = fields.Str()
     species = fields.Str()
     tissue = fields.Str()
+    information = fields.Str()
 
     files = fields.Relationship(
         related_url='/experiments/{experiment_id}/files',
@@ -75,62 +79,88 @@ class ExperimentSchema(BaseSchema):
         type_='files'
     )
 
+    # extend get_top_level_links method from parent class to output further link objects (pagination, etc...)
+    def get_top_level_links(self, data, many):
+        top_level_links = super(ExperimentSchema, self).get_top_level_links(data, many) # call parent class' method
+        if many:
+            next_link = url_for('api.experimentlistcontroller', page=2, _external=True)
+            prev_link = url_for('api.experimentlistcontroller', page=1, _external=True)
+            top_level_links.update({'next': next_link, 'prev': prev_link})
+        return top_level_links
+
+
     class Meta:
         type_ = 'experiments'
         strict = True
+        self_url = '/experiments/{id}'
+        self_url_kwargs = {'id': '<id>'}
+        self_url_many = '/experiments/'
 
 
-# Define Experiment files model
+# Define Experiment file model. File can actually be a file or a directory
 class ExperimentFile(Base):
 
-    __tablename__ = "experiment_files"
+    __tablename__ = "experiment_contents"
 
     # Attributes
-    # filename hash string will be generated from file name using SHA1 hashing, see event "hash_before_insert"
-    filename_hash = db.Column(db.String(40), nullable=True, default='')
+    type = db.Column(db.String(40), nullable=False, default='file')
+    # id of experiment this file belongs to
     experiment_id = db.Column(db.Integer(), db.ForeignKey("experiments.id", ondelete="CASCADE"))
-    file_name = db.Column(db.String(255), nullable=False, default='')
-    file_path = db.Column(db.String(255), nullable=False, default='')
     # filesize stored as amount of Bytes
     # because of huge files (>1TB) possible, we need BigInteger to store it
     # PostgreSQL: http://www.postgresql.org/docs/current/static/datatype-numeric.html
     # bigint(8 bytes storage size). Range: -9223372036854775808 to +9223372036854775807
-    file_size = db.Column(db.BigInteger)
-    file_group = db.Column(db.String(40), default='raw')
+    size = db.Column(db.BigInteger)
+    name = db.Column(db.String(255), nullable=False, default='')
+    path = db.Column(db.String(255), nullable=False, default='')
+    # a file within a directory has the parent set to that directory's id
+    parent = db.Column(db.Integer)
+    # hash string will be generated from file name using SHA1 hashing, see event "hash_before_insert"
+    sha = db.Column(db.String(40), nullable=True, default='')
+    mimetype = db.Column(db.String(255))
+    # a file belongs either to raw file or to anylyzed file groups
+    group = db.Column(db.String(40), default='raw')
 
     # constructor
-    def __init__(self, experiment_id, file_name, file_path, file_size, file_group='raw'):
+    def __init__(self, type, experiment_id, size, name, path, parent, mimetype, group='raw'):
+        self.type = type
         self.experiment_id = experiment_id
-        self.file_name = file_name
-        self.file_path = file_path
-        self.file_size = file_size
-        self.file_group = file_group
+        self.size = size
+        self.name = name
+        self.path = path
+        self.parent = parent
+        self.mimetype = mimetype
+        self.group = group
 
     def __repr__(self):
         return '<Experiment file %d>' % self.id
 
 
-# Marshmallow schema for experiments
+# Marshmallow schema for experiment file
 class ExperimentFileSchema(BaseSchema):
-    file_name = fields.Str()
-    filename_hash = fields.Str()
-    experiment_id = fields.Int()
-    file_path = fields.Str()
-    # python integer type can store very large numbers, there is no toher data type like bigint
-    file_size = fields.Int()
-    file_group = fields.Str()
+    type = fields.Str(dump_only=True)
+    experiment_id = fields.Int(dump_only=True)
+    # python integer type can store very large numbers, there is no other data type like bigint
+    size = fields.Int(dump_only=True)
+    name = fields.Str()
+    path = fields.Str(dump_only=True)
+    parent = fields.Str()
+    sha = fields.Str()
+    mimetype = fields.Str(dump_only=True)
+    group = fields.Str()
 
     class Meta:
         type_ = 'files'
         strict = True
-
+        self_url = '/experiments/{experiment_id}/files/{id}'
+        self_url_kwargs = {'experiment_id': '<experiment_id>', 'id': '<id>'}
 
 @db.event.listens_for(ExperimentFile, 'after_delete')
 def remove_file_after_delete(mapper, connection, target):
     """
     Remove file from filesystem after row gets deleted in database
     """
-    silent_remove(target.file_path)
+    silent_remove(target.path)
 
 
 @db.event.listens_for(Experiment, 'after_delete')
@@ -147,5 +177,13 @@ def hash_before_insert(mapper, connection, target):
     """
     Create a hash string out of the filename for use as file unique identifier
     """
-    filename_hash = sha1_string(target.file_name)
-    target.filename_hash = filename_hash
+    filename_hash = sha1_string(target.name)
+    target.sha = filename_hash
+
+@db.event.listens_for(ExperimentFile.name, 'set')
+def hash_after_update(target, value, oldvalue, initiator):
+    """
+    Update the hash string after a filename gets updated
+    """
+    filename_hash = sha1_string(value)
+    target.sha = filename_hash
