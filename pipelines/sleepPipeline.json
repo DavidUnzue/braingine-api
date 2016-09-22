@@ -1,0 +1,27 @@
+{
+  "id": "sleepPipeline",
+  "filename": "sleepPipeline.sh",
+  "name": "Sleep Pipeline",
+  "description": "It sleeps for a given time.",
+  "command": "sh ./sleepPipeline.sh $sleepTime",
+  "parameters": {
+    "inputs": [
+      {
+        "name": "sleepTime",
+        "label": "How long should it sleep?",
+        "type": "text"
+      }
+    ],
+    "outputs": []
+  },
+  "example": {
+    "pipeline_id": "sleepPipeline",
+    "command": "sh ./sleepPipeline.sh $sleepTime",
+    "parameters": {
+    	"inputs": [
+    		{"sleepTime": "2m"}
+    	],
+    	"outputs": []
+    }
+  }
+}

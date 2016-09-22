@@ -5,11 +5,19 @@ from flask.ext.restful import Api
 api_blueprint = Blueprint('api', __name__)
 api = Api(api_blueprint)
 
-from . import experiments
+from . import experiments, pipelines, tasks
 
 # API Endpoints
+
+# experiment
 api.add_resource(experiments.ExperimentListController, '/experiments/')
 api.add_resource(experiments.ExperimentController, '/experiments/<int:experiment_id>')
 api.add_resource(experiments.ExperimentFileListController, '/experiments/<int:experiment_id>/files/')
 api.add_resource(experiments.ExperimentFileController, '/experiments/<int:experiment_id>/files/<int:file_id>')
-api.add_resource(experiments.ExperimentAnalysisController, '/experiments/<int:experiment_id>/analysis/')
+api.add_resource(experiments.ExperimentAnalysisListController, '/experiments/<int:experiment_id>/analyses/')
+api.add_resource(experiments.ExperimentAnalysisController, '/experiments/<int:experiment_id>/analyses/<int:analysis_id>')
+# pipeline
+api.add_resource(pipelines.PipelineListController, '/pipelines/')
+api.add_resource(pipelines.PipelineController, '/pipelines/<pipeline_filename>')
+# task status
+api.add_resource(tasks.TaskStatusController, '/taskstatus/<task_id>')

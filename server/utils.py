@@ -1,4 +1,6 @@
 import os, errno, hashlib, shutil
+# ssh package
+from pexpect import pxssh
 
 
 # def create_dir(directory):
@@ -57,3 +59,15 @@ def sha1_string(string):
     hash_object = hashlib.sha1(string)
     hex_dig = hash_object.hexdigest()
     return hex_dig
+
+
+def connect_ssh(server, user, password):
+    """
+    Establish a connection to a server through SSH
+    """
+    try:
+        connection = pxssh.pxssh()
+        connection.login(server, user, password)
+    except pxssh.ExceptionPxssh as e:
+        abort(404, "Unable to connect to server through SSH.")
+    return connection

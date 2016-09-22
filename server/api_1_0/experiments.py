@@ -2,23 +2,27 @@
 # -*- coding: utf-8 -*-
 
 import urllib, os, werkzeug
-from flask import abort, send_from_directory, make_response, current_app
-from flask.ext.restful import Resource, reqparse, fields
+from flask import abort, make_response, current_app
+from flask.ext.restful import Resource, reqparse
 # Import db instance
 from server import db
 # Import models from models.py file
 # IMPORTANT!: this has to be done after the DB gets instantiated and in this case imported too
-from server.models import Experiment, ExperimentSchema, ExperimentFile, ExperimentFileSchema
+from server.models import Experiment, ExperimentSchema, ExperimentFile, ExperimentFileSchema, ExperimentAnalysis, ExperimentAnalysisSchema
 from server.utils import sha1_string
-# ssh package
-from pexpect import pxssh
 # http://stackoverflow.com/a/30399108
-from . import api
+from . import api, tasks
+# celery task
+from server.tasks import execute_command
 # allow use of or syntax for sql queries
 from sqlalchemy import or_
+# webargs for request parsing instead of flask restful's reqparse
+from webargs import fields, validate
+from webargs.flaskparser import parser as webargs_parser, use_args
 
 experiment_schema = ExperimentSchema()
 experiment_file_schema = ExperimentFileSchema()
+experiment_analysis_schema = ExperimentAnalysisSchema()
 
 parser = reqparse.RequestParser()
 # The default argument type is a unicode string. This will be str in python3 and unicode in python2.
@@ -51,15 +55,15 @@ class ExperimentListController(Resource):
             pagination = Experiment.query.paginate(page, 5)
             experiments = pagination.items
             #experiments = Experiment.query.all()
-            prev = None
+            page_prev = None
             if pagination.has_prev:
-                prev = api.url_for(self, page=page-1, _external=True)
-            next = None
+                page_prev = api.url_for(self, page=page-1, _external=True)
+            page_next = None
             if pagination.has_next:
-                next = api.url_for(self, page=page+1, _external=True)
+                page_next = api.url_for(self, page=page+1, _external=True)
 
-        if not experiments:
-            return [], 200
+        # if not experiments:
+        #     return [], 200
 
         result = experiment_schema.dump(experiments, many=True).data
 
@@ -197,8 +201,6 @@ class ExperimentFileListController(Resource):
             # http://stackoverflow.com/a/19506429
             # http://docs.python.org/release/2.7/tutorial/controlflow.html#unpacking-argument-lists
         experiment_files = ExperimentFile.query.filter_by(**filters).all()
-        if not experiment_files:
-            return [], 200
         result = experiment_file_schema.dump(experiment_files, many=True).data
         return result, 200
 
@@ -215,20 +217,73 @@ class ExperimentFileController(Resource):
         return resp
 
 
+class ExperimentAnalysisListController(Resource):
+
+    def get(self, experiment_id):
+        experiment_analyses = ExperimentAnalysis.query.filter_by(experiment_id=experiment_id).all()
+        result = experiment_analysis_schema.dump(experiment_analyses, many=True).data
+        return result, 200
+
+    pipeline_args = {
+        'pipeline_id': fields.Str(),
+        'command': fields.Str(),
+        'parameters': fields.Nested({
+            'inputs': fields.List(fields.Dict()),
+            'outputs': fields.List(fields.Dict())
+        })
+    }
+    # example object
+    # {
+    #     "pipeline_id": "examplePipeline",
+    #     "command": "sh ./examplePipeline.sh $input1 $input2 $output",
+    #     "parameters": {
+    #     	"inputs": [
+    #     		{"input1": "'This is a test'"},
+    #           {"input2": "'This is another test'"}
+    #     	],
+    #     	"outputs": [
+    #           {"output": "testOutput.txt"}
+    #     	]
+    #     }
+    # }
+    @use_args(pipeline_args)
+    def post(self, args, experiment_id):
+        from string import Template
+
+        # merge input dictionaries (key-value pairs) into one single dictionary for inputs
+        input_params = {key: value for d in args['parameters']['inputs'] for key, value in d.items()}
+        # merge output dictionaries into one single dictionary for outputs
+        output_params = {key: value for d in args['parameters']['outputs'] for key, value in d.items()}
+        # merge both dictionaries, note that for duplicated keys, only the value of the second dict is stored, but parameters should be unique anyway
+        pipeline_parameters = dict()
+        pipeline_parameters.update(input_params)
+        pipeline_parameters.update(output_params)
+
+        # write params into command template
+        pipeline_command = args['command']
+        pipeline_command = Template(pipeline_command)
+        final_pipeline_command = pipeline_command.substitute(pipeline_parameters)
+
+        task = execute_command.delay(final_pipeline_command)
+        # experiment_analysis = ExperimentAnalysis(experiment_id=experiment_id, pipeline_id=args['pipeline_id'], inputs=inputs, outputs=outputs)
+        # db.session.add(experiment_analysis)
+        # db.session.commit()
+        # result = experiment_analysis_schema.dump(experiment_analysis).data
+
+        return {}, 202, {'Location': api.url_for(tasks.TaskStatusController, task_id=task.id)}
+
+
 class ExperimentAnalysisController(Resource):
 
-    def connect_ssh(self):
-        s = pxssh.pxssh()
-        s.login(current_app.config.get('SSH_SERVER'), current_app.config.get('SSH_USER'), current_app.config.get('SSH_PASSWORD'))
-        return s
+    def get(self, experiment_id, analysis_id):
+        experiment_analysis = ExperimentAnalysis.query.filter_by(experiment_id=experiment_id, id=analysis_id).first()
+        result = experiment_analysis_schema.dump(experiment_analysis).data
+        return result, 200
 
-    def post(self, experiment_id):
-        parser.add_argument('cmd', location=['form', 'json'])
-        parsed_args = parser.parse_args()
-        # run cmd in remote server
-        cmd = parsed_args['cmd']
-        ssh = self.connect_ssh()
-        ssh.sendline(cmd)
-        ssh.prompt()
-        res = ssh.before
-        return res, 201
+    def delete(self, experiment_id, analysis_id):
+        experiment_analysis = ExperimentAnalysis.query.filter_by(experiment_id=experiment_id, id=analysis_id).first()
+        if not experiment_analysis:
+            abort(404, "Analysis {} for experiment {} doesn't exist".format(experiment_id, analysis_id))
+        db.session.delete(experiment_analysis)
+        db.session.commit()
+        return {}, 204
