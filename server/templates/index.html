@@ -15,12 +15,13 @@
 
   <!-- CSS
   –––––––––––––––––––––––––––––––––––––––––––––––––– -->
-  <link href="{{ url_for('static', filename='css/foundation.min.css') }}" rel="stylesheet">
+  <link rel="stylesheet" href="https://maxcdn.bootstrapcdn.com/bootstrap/4.0.0-alpha.4/css/bootstrap.min.css" integrity="sha384-2hfp1SzUoho7/TsGGGDaFdsuuDL0LX2hnUp6VkX3CUQ2K4K+xjboZdsXyp4oUHZj" crossorigin="anonymous">
   <link href="{{ url_for('static', filename='css/jquery.fileupload.css') }}" rel="stylesheet">
   <link href="{{ url_for('static', filename='css/jquery.fileupload-ui.css') }}" rel="stylesheet">
   <link href="{{ url_for('static', filename='css/style.css') }}" rel="stylesheet">
   <link href="{{ url_for('static', filename='css/select2.min.css') }}" rel="stylesheet">
-  <link href="{{ url_for('static', filename='bower_components/pikaday/css/pikaday.css') }}" rel="stylesheet">
+  <link href="{{ url_for('static', filename='css/pikaday.css') }}" rel="stylesheet">
+  <link href="{{ url_for('static', filename='css/font-awesome/css/font-awesome.min.css') }}" rel="stylesheet">
 
   <!-- Favicon
   –––––––––––––––––––––––––––––––––––––––––––––––––– -->
@@ -31,17 +32,20 @@
   <div id="experiments-app">
 
     <header class="top-bar">
-      <div class="top-bar-right">
-        <nav class="main-menu">
-          <ul class="menu">
-            <li><a href="/">Experiments</a></li>
-            <li><a href="/experiments/add">Create new</a></li>
-          </ul>
-        </nav>
-      </div>
+      <nav class="navbar navbar-full navbar-light bg-faded">
+        <a class="navbar-brand" href="#">BUTLER</a>
+        <ul class="nav navbar-nav">
+          <li class="nav-item active">
+            <a class="nav-link" href="/">Experiments</a>
+          </li>
+          <li class="nav-item">
+            <a class="nav-link" href="/experiments/new">Create new</a>
+          </li>
+        </ul>
+      </nav>
     </header>
 
-    <main id="main">
+    <main id="main" class="container-fluid">
     </main>
 
   </div> <!-- /container -->
@@ -52,43 +56,55 @@
   <script src="{{ url_for('static', filename='js/libs/underscore-min.js') }}" type="text/javascript"></script>
   <script src="{{ url_for('static', filename='js/libs/backbone/backbone-min.js') }}" type="text/javascript"></script>
   <script src="{{ url_for('static', filename='js/libs/backbone/backbone.syphon.min.js') }}" type="text/javascript"></script>
-  <script src="{{ url_for('static', filename='js/libs/foundation.min.js') }}"></script>
+  <script src="//cdnjs.cloudflare.com/ajax/libs/tether/1.3.1/js/tether.min.js"></script>
+  <script src="https://maxcdn.bootstrapcdn.com/bootstrap/4.0.0-alpha.4/js/bootstrap.min.js" integrity="sha384-VjEeINv9OSwtWFLAtmc4JCtEJXXBub00gtSnszmspDLCtC0I4z4nqz7rEFbIZLLU" crossorigin="anonymous"></script>
   <script src="{{ url_for('static', filename='js/libs/what-input.js') }}"></script>
-  <script src="{{ url_for('static', filename='bower_components/d3/d3.min.js') }}"></script>
+  <script src="https://d3js.org/d3.v4.min.js"></script>
   <script src="{{ url_for('static', filename='js/libs/jquery-fileupload/jquery.ui.widget.js') }}"></script>
   <script src="{{ url_for('static', filename='js/libs/jquery-fileupload/jquery.iframe-transport.js') }}"></script>
   <script src="{{ url_for('static', filename='js/libs/jquery-fileupload/jquery.fileupload.js') }}"></script>
   <script src="{{ url_for('static', filename='js/libs/jquery-fileupload/jquery.knob.min.js') }}"></script>
   <script src="{{ url_for('static', filename='js/libs/jquery-fileupload/jquery.fileupload-ui.js') }}"></script>
   <script src="{{ url_for('static', filename='js/libs/select2.min.js') }}"></script>
-  <script src="{{ url_for('static', filename='bower_components/pikaday/pikaday.js') }}"></script>
+  <script src="{{ url_for('static', filename='js/libs/pikaday.js') }}"></script>
 
 
-  <script type="text/template" id="experiments-tmpl">
-    <section class="top">
+  <script type="text/template" id="experiment-list-layout">
+    <section class="top container">
       <div class="row">
         <h1>Experiments</h1>
-        <form class="search-form" role="search">
-          <div class="form-group">
-            <input type="text" class="form-control" placeholder="Search">
-          </div>
-        </form>
+        <div class="actions-bar-container"></div>
       </div>
+      <div class="row list-container"></div>
     </section>
   </script>
 
-
-  <script type="text/template" id="experiment-item-tmpl">
-    <div class="row">
-      <h4 class="list-group-item-heading"><a href="experiments/<%= id %>" class="show"><%= name %></a></h4>
-      <p class="list-group-item-text">Experimenter: <i><%= experimenter %></i></p>
-    </div>
+  <script id="experiment-list-action-bar" type="text/template">
+     <button class="btn btn-lg btn-success">
+       Create a new experiment
+     </button>
+     <form class="search-form" role="search">
+       <div class="form-group">
+         <input type="text" class="form-control" placeholder="Search">
+       </div>
+     </form>
   </script>
 
 
-  <script type="text/template" id="experiment-tmpl">
+  <script type="text/template" id="experiment-list-item">
+    <h4><a id="view"><%= name %></a></h4>
+    <p>Experimenter: <i><%= experimenter %></i></p>
+  </script>
+
+  <script id="experiment-view-layout" type="text/template">
+    <div class="col-lg-12">
+      <div id="experiment-details" class="container"></div>
+    </div>
+  </script>
+
+  <script type="text/template" id="experiment-view-details">
     <div class="top jumbotron">
-      <div class="row">
+      <div class="container">
         <div class="page-header">
           <h2><%= name %></h2>
         </div>
@@ -96,21 +112,25 @@
     </div>
     <div class="content expanded row">
       <div id="experiment-tabs">
-        <ul class="menu row">
-          <li class="is-active"><a class="experiment-information">Information</a></li>
-          <li><a class="experiment-raw-files">Raw data</a></li>
-          <li><a class="experiment-analysis-files">Analysis results</a></li>
+        <ul class="nav nav-tabs">
+          <li class="nav-item"><a class="nav-link active" data-bypass data-toggle="tab" href="#experiment-information" role="tabpanel">Information</a></li>
+          <li class="nav-item"><a class="nav-link" data-bypass data-toggle="tab" href="#experiment-uploads" role="tabpanel">Uploads</a></li>
+          <li class="nav-item"><a class="nav-link" data-bypass data-toggle="tab" href="#experiment-processing" role="tabpanel">Processing</a></li>
         </ul>
       </div>
-      <div id="experiment-data" class="row">
-        <div class="small-12 column">
-          <div id="experiment-information">
-            <p><strong>Experiment type:</strong> <%= exp_type %></p>
-            <p><strong>Submitted on:</strong> <%= date %></p>
-            <p><strong>Experimenter:</strong> <%= experimenter %></p>
-            <p><strong>Species:</strong> <%= species %></p>
-            <p><strong>Tissue:</strong> <%= tissue %></p>
-          </div>
+      <div id="experiment-data" class="tab-content">
+        <div class="tab-pane active" id="experiment-information">
+          <p><strong>Experiment type:</strong> <%= exp_type %></p>
+          <p><strong>Submitted on:</strong> <%= date %></p>
+          <p><strong>Experimenter:</strong> <%= experimenter %></p>
+          <p><strong>Species:</strong> <%= species %></p>
+          <p><strong>Tissue:</strong> <%= tissue %></p>
+        </div>
+        <div class="tab-pane" id="experiment-uploads">
+          <p>Empty</p>
+        </div>
+        <div class="tab-pane" id="experiment-processing">
+          <p>Empty</p>
         </div>
       </div>
     </div>
@@ -158,13 +178,17 @@
   </script>
 
 
-  <script type="text/template" id="experiment-create-tmpl">
+  <script type="text/template" id="experiment-form-layout">
     <div class="jumbotron">
       <div class="container">
         <h2>New experiment</h2>
       </div>
     </div>
-      <div class="content container tab-content">
+    <div id="form-container"></div>
+  </script>
+
+  <script type="text/template" id="experiment-form">
+      <div class="container">
         <div id="experiment-information">
           <h4>Fill in the information about the experiment</h4>
           <hr />
@@ -193,7 +217,7 @@
                   <div class="input-group date">
                     <input type="text" class="form-control" id="experiment-date">
                     <div class="input-group-addon">
-                        <span class="glyphicon glyphicon-calendar"></span>
+                        <i class="fa fa-calendar" aria-hidden="true"></i>
                     </div>
                   </div>
                 </div>
@@ -220,29 +244,15 @@
               </div>
             </div>
             <div class="row">
-              <div class="col-md-6">
+              <div class="col-lg-12">
                 <div class="form-group">
                   <label for="experiment-information">Additional information:</label>
-                  <textarea class="form-control" id="experiment-additionalInformation" placeholder="Additional information"></textarea>
+                  <textarea class="form-control" id="experiment-additionalInformation" placeholder="Additional information" rows="6"></textarea>
                 </div>
               </div>
             </div>
           </form>
         </div>
-        <div id="experiment-files">
-          <form method="post" id="file-uploader">
-          </form>
-        </div>
-        <br />
-        <h4>Select you analysis pipeline</h4>
-        <hr />
-        <div class="form-group">
-          <select class="form-control">
-            <option>RNA-Seq Analysis Pipeline</option>
-            <option>Alternative analysis pipeline</option>
-          </select>
-        </div>
-        <hr />
         <button class="create btn btn-lg btn-default">
           <span class="glyphicon glyphicon-ok text-success" aria-hidden="true"></span> Submit experiment
         </button>
@@ -265,20 +275,20 @@
       </ul>
   </script>
 
+  <script src="{{ url_for('static', filename='js/common.js') }}"></script>
   <script src="{{ url_for('static', filename='js/app.js') }}"></script>
-  <script src="{{ url_for('static', filename='js/models/experiment.js') }}"></script>
-  <script src="{{ url_for('static', filename='js/models/experiment-file.js') }}"></script>
-  <script src="{{ url_for('static', filename='js/collections/base.js') }}"></script>
-  <script src="{{ url_for('static', filename='js/collections/experiments.js') }}"></script>
-  <script src="{{ url_for('static', filename='js/collections/experiment-files.js') }}"></script>
-  <script src="{{ url_for('static', filename='js/views/experiment/list-item.js') }}"></script>
-  <script src="{{ url_for('static', filename='js/views/experiment/wrapper.js') }}"></script>
-  <script src="{{ url_for('static', filename='js/views/experiment/list.js') }}"></script>
-  <script src="{{ url_for('static', filename='js/views/experiment-file/list-item.js') }}"></script>
-  <script src="{{ url_for('static', filename='js/views/experiment-file/list.js') }}"></script>
-  <script src="{{ url_for('static', filename='js/views/experiment/show.js') }}"></script>
-  <script src="{{ url_for('static', filename='js/views/experiment/create.js') }}"></script>
-  <script src="{{ url_for('static', filename='js/routers/router.js') }}"></script>
+  <script src="{{ url_for('static', filename='js/apps/experiments/router.js') }}"></script>
+  <script src="{{ url_for('static', filename='js/apps/experiments/models/baseModel.js') }}"></script>
+  <script src="{{ url_for('static', filename='js/apps/experiments/models/experiment.js') }}"></script>
+  <script src="{{ url_for('static', filename='js/apps/experiments/models/experimentFile.js') }}"></script>
+  <script src="{{ url_for('static', filename='js/apps/experiments/collections/baseCollection.js') }}"></script>
+  <script src="{{ url_for('static', filename='js/apps/experiments/collections/experimentCollection.js') }}"></script>
+  <script src="{{ url_for('static', filename='js/apps/experiments/collections/experimentFileCollection.js') }}"></script>
+  <script src="{{ url_for('static', filename='js/apps/experiments/experimentList.js') }}"></script>
+  <script src="{{ url_for('static', filename='js/apps/experiments/experimentViewer.js') }}"></script>
+  <script src="{{ url_for('static', filename='js/apps/experiments/experimentEditor.js') }}"></script>
+  <script src="{{ url_for('static', filename='js/apps/experiments/app.js') }}"></script>
+  <script type="text/javascript">App.start();</script>
   <script src="{{ url_for('static', filename='js/visualizations/scatter-plot.js') }}"></script>
   <script src="{{ url_for('static', filename='js/visualizations/line-chart.js') }}"></script>
 
