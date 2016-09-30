@@ -127,7 +127,7 @@
           <p><strong>Tissue:</strong> <%= tissue %></p>
         </div>
         <div class="tab-pane" id="experiment-uploads">
-          <p>Empty</p>
+          <div class="experiment-file-list-container"></div>
         </div>
         <div class="tab-pane" id="experiment-processing">
           <p>Empty</p>
@@ -137,13 +137,13 @@
   </script>
 
 
-  <script type="text/template" id="experiment-files-item-tmpl">
+  <script type="text/template" id="experiment-file-item">
     <a class="accordion-title">
-      <%= file_name %>
+      <%= name %>
     </a>
     <div class="accordion-content" data-tab-content>
-      <p class="list-group-item-text">File path: <i><%= file_path %></i></p>
-      <p class="list-group-item-text">File size: <i><%= file_size %></i></p>
+      <p class="list-group-item-text">File path: <i><%= path %></i></p>
+      <p class="list-group-item-text">File size: <i><%= size %></i></p>
       <br />
       <div class="btn-group experiment-file-actions">
         <button type="button" class="btn btn-default dropdown-toggle" data-toggle="dropdown" aria-haspopup="true" aria-expanded="false">
