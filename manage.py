@@ -11,6 +11,7 @@ from flask.ext.script import Manager
 from flask.ext.migrate import Migrate, MigrateCommand
 
 from server import create_app, db
+from celery.bin.celery import main as celery_main
 
 # create app instance with settings defined by enviroment variable
 app = create_app(os.getenv('APP_SETTINGS') or 'default')
@@ -40,6 +41,13 @@ def test(coverage=False):
         COV.html_report(directory=covdir)
         print('HTML version: file://%s/index.html' % covdir)
         COV.erase()
+
+@manager.option('-n', '--hostname', dest='hostname', default='worker1', help='Unique name for a worker instance')
+def celeryworker(hostname):
+    """Run a celery worker process."""
+    celery_args = ['celery', '-A', 'server.tasks', 'worker', '-n', hostname, '--loglevel=info']
+    with app.app_context():
+        return celery_main(celery_args)
 
 
 if __name__ == '__main__':
