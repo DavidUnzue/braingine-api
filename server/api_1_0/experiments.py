@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
 
-import urllib, os, werkzeug
+import urllib, os, werkzeug, magic
 from flask import abort, make_response, current_app
 from flask.ext.restful import Resource, reqparse
 # Import db instance
@@ -128,7 +128,9 @@ class ExperimentFileListController(Resource):
     def post(self, experiment_id):
         # get uploaded file
         parsed_args = parser.parse_args()
-        newFile = parsed_args['files[]'][0]
+        newFile = parsed_args['files[]'][0] #TODO handle multiple files
+
+        # get file type
         # http://werkzeug.pocoo.org/docs/0.11/datastructures/#werkzeug.datastructures.FileStorage
         mimetype = newFile.mimetype;
 
@@ -150,42 +152,56 @@ class ExperimentFileListController(Resource):
         # define file path
         file_path = os.path.join(file_folder, file_name)
 
-        # handle chunked file upload
-        if parsed_args['Content-Range'] and newFile and self.is_allowed_file(newFile.filename):
-            # extract byte numbers from Content-Range header string
-            content_range = parsed_args['Content-Range']
-            range_str = content_range.split(' ')[1]
-            start_bytes = int(range_str.split('-')[0])
-            end_bytes = int(range_str.split('-')[1].split('/')[0])
-            total_bytes = int(range_str.split('/')[1])
+        # upload file
+        if newFile:
+            # file format is in allowed formats list defined in config
+            if self.is_allowed_file(newFile.filename):
+                # handle chunked file upload
+                if parsed_args['Content-Range']:
+                    # extract byte numbers from Content-Range header string
+                    content_range = parsed_args['Content-Range']
+                    range_str = content_range.split(' ')[1]
+                    start_bytes = int(range_str.split('-')[0])
+                    end_bytes = int(range_str.split('-')[1].split('/')[0])
+                    total_bytes = int(range_str.split('/')[1])
 
-            # append chunk to the file on disk, or create new
-            with open(file_path, 'a') as f:
-                f.seek(start_bytes)
-                f.write(newFile.stream.read())
+                    # append chunk to the file on disk, or create new
+                    with open(file_path, 'a') as f:
+                        f.seek(start_bytes)
+                        f.write(newFile.stream.read())
 
-            # check if these are the last bytes
-            # if so, create experiment
-            if end_bytes >= (total_bytes - 1):
-                experimentFile = ExperimentFile(experiment_id=experiment_id, file_name=file_name, file_path=file_path, file_size=total_bytes, file_mimetype=mimetype)
-                db.session.add(experimentFile)
-                db.session.commit()
-                result = experiment_file_schema.dump(experimentFile, many=False).data
-                return result, 201
-            # otherwise, return range as string
+                    # check if these are the last bytes
+                    # if so, create experiment
+                    if end_bytes >= (total_bytes - 1):
+                        # get bioinformatic file type using magic
+                        fh = magic.Magic(magic_file=current_app.config.get('BIOINFO_MAGIC_FILE'))
+                        file_type = fh.from_file(file_path)
+                        file_size = os.stat(file_path).st_size
+                        experimentFile = ExperimentFile(experiment_id=experiment_id, size=file_size, name=file_name, path=file_path, mime_type=mimetype, file_type=file_type)
+                        db.session.add(experimentFile)
+                        db.session.commit()
+                        result = experiment_file_schema.dump(experimentFile, many=False).data
+                        return result, 201
+                    # otherwise, return range as string
+                    else:
+                        return range_str, 201
+
+                # handle small/complete file upload
+                # Check if the file is one of the allowed types/extensions
+                else:
+                    newFile.save(file_path)
+                    # get bioinformatic file type using magic
+                    fh = magic.Magic(magic_file=current_app.config.get('BIOINFO_MAGIC_FILE'))
+                    file_type = fh.from_file(file_path)
+                    file_size = os.stat(file_path).st_size
+                    experimentFile = ExperimentFile(experiment_id=experiment_id, size=file_size, name=file_name, path=file_path, mime_type=mimetype, file_type=file_type)
+                    db.session.add(experimentFile)
+                    db.session.commit()
+                    result = experiment_file_schema.dump(experimentFile, many=False).data
+                    return result, 201
+            # file format not in allowed files list
             else:
-                return range_str, 201
-
-        # handle small/complete file upload
-        # Check if the file is one of the allowed types/extensions
-        elif newFile and self.is_allowed_file(newFile.filename):
-            newFile.save(file_path)
-            file_size = os.stat(file_path).st_size
-            experimentFile = ExperimentFile(experiment_id=experiment_id, file_name=file_name, file_path=file_path, file_size=file_size, file_mimetype=mimetype)
-            db.session.add(experimentFile)
-            db.session.commit()
-            result = experiment_file_schema.dump(experimentFile, many=False).data
-            return result, 201
+                abort(404, "File format is not allowed")
         else:
             abort(404, "No file sent")
 
@@ -210,7 +226,7 @@ class ExperimentFileController(Resource):
     @api.representation('text/tab-separated-values')
     def get(self, experiment_id, file_id):
         experiment_file = ExperimentFile.query.filter_by(experiment_id=experiment_id, id=file_id).first()
-        with open(experiment_file.file_path, 'r') as data_file:
+        with open(experiment_file.path, 'r') as data_file:
             data = data_file.read()
         resp = make_response(data, 200)
         resp.headers['content-type'] = 'text/tab-separated-values'

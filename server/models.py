@@ -120,23 +120,25 @@ class ExperimentFile(Base):
     name = db.Column(db.String(255), nullable=False, default='')
     path = db.Column(db.String(255), nullable=False, default='')
     # a file within a directory has the parent set to that directory's id
-    parent = db.Column(db.Integer)
+    parent = db.Column(db.Integer, nullable=True)
     # hash string will be generated from file name using SHA1 hashing, see event "hash_before_insert"
     sha = db.Column(db.String(40), nullable=True, default='')
     # for a folder, use mime type "application/vnd.mpi-apps.folder"
     # a folder will essentially be a file with that mime type
     mime_type = db.Column(db.String(255))
+    file_type = db.Column(db.String(255))
     # a file belongs either to the  uploaded files group ('upload') or to analysis files group ('analysis')
     group = db.Column(db.String(40), default='upload')
 
     # constructor
-    def __init__(self, type, experiment_id, size, name, path, parent, mime_type, group='upload'):
+    def __init__(self, experiment_id, size, name, path, mime_type, file_type, parent=None, group='upload'):
         self.experiment_id = experiment_id
         self.size = size
         self.name = name
         self.path = path
         self.parent = parent
         self.mime_type = mime_type
+        self.file_type = file_type
         self.group = group
 
     def __repr__(self):
@@ -154,6 +156,7 @@ class ExperimentFileSchema(BaseSchema):
     parent = fields.Str()
     sha = fields.Str()
     mime_type = fields.Str(dump_only=True)
+    file_type = fields.Str()
     group = fields.Str()
 
     class Meta:
