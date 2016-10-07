@@ -52,7 +52,7 @@ class ExperimentListController(Resource):
             # use "ilike" for searching case unsensitive
             experiments = Experiment.query.filter(or_(Experiment.name.ilike('%'+ search_query + '%'), Experiment.experimenter.ilike('%'+ search_query + '%'), Experiment.exp_type.ilike('%'+ search_query + '%'), Experiment.species.ilike('%'+ search_query + '%'), Experiment.tissue.ilike('%'+ search_query + '%'))).all()
         else:
-            pagination = Experiment.query.paginate(page, 5)
+            pagination = Experiment.query.paginate(page, 15)
             experiments = pagination.items
             #experiments = Experiment.query.all()
             page_prev = None
