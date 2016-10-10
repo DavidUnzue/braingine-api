@@ -14,7 +14,7 @@ class Config(object):
     CELERY_RESULT_BACKEND = 'redis://'
     CELERY_BROKER_URL = 'redis://localhost:6379/0'
     # These are the extension that we are accepting to be uploaded
-    ALLOWED_EXTENSIONS = set(['txt','bam','fasta','fa', 'fastq', 'fq'])
+    ALLOWED_EXTENSIONS = set(['txt','bam','bed','fasta','fa', 'fastq', 'fq'])
     BIOINFO_MAGIC_FILE = './resources/magic/bioinformatics'
 
     @staticmethod

@@ -72,7 +72,7 @@ class ExperimentSchema(BaseSchema):
     information = fields.Str()
 
     files = fields.Relationship(
-        related_url='/api/experiments/{experiment_id}/files',
+        related_url='/api/experiments/{experiment_id}/files/',
         related_url_kwargs={'experiment_id': '<id>'},
         # Include resource linkage
         many=True, include_resource_linkage=True,
@@ -80,7 +80,7 @@ class ExperimentSchema(BaseSchema):
     )
 
     analyses = fields.Relationship(
-        related_url='/api/experiments/{experiment_id}/analyses',
+        related_url='/api/experiments/{experiment_id}/analyses/',
         related_url_kwargs={'experiment_id': '<id>'},
         # Include resource linkage
         many=True, include_resource_linkage=True,
