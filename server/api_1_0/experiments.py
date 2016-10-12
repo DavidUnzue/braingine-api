@@ -177,7 +177,7 @@ class ExperimentFileListController(Resource):
                         fh = magic.Magic(magic_file=current_app.config.get('BIOINFO_MAGIC_FILE'))
                         file_type = fh.from_file(file_path)
                         file_size = os.stat(file_path).st_size
-                        experimentFile = ExperimentFile(experiment_id=experiment_id, size=file_size, name=file_name, path=file_path, mime_type=mimetype, file_type=file_type)
+                        experimentFile = ExperimentFile(experiment_id=experiment_id, size_in_bytes=file_size, name=file_name, path=file_path, mime_type=mimetype, file_type=file_type)
                         db.session.add(experimentFile)
                         db.session.commit()
                         result = experiment_file_schema.dump(experimentFile, many=False).data
@@ -194,7 +194,7 @@ class ExperimentFileListController(Resource):
                     fh = magic.Magic(magic_file=current_app.config.get('BIOINFO_MAGIC_FILE'))
                     file_type = fh.from_file(file_path)
                     file_size = os.stat(file_path).st_size
-                    experimentFile = ExperimentFile(experiment_id=experiment_id, size=file_size, name=file_name, path=file_path, mime_type=mimetype, file_type=file_type)
+                    experimentFile = ExperimentFile(experiment_id=experiment_id, size_in_bytes=file_size, name=file_name, path=file_path, mime_type=mimetype, file_type=file_type)
                     db.session.add(experimentFile)
                     db.session.commit()
                     result = experiment_file_schema.dump(experimentFile, many=False).data
@@ -231,6 +231,14 @@ class ExperimentFileController(Resource):
         resp = make_response(data, 200)
         resp.headers['content-type'] = 'text/tab-separated-values'
         return resp
+
+    def delete(self, experiment_id, file_id):
+        experiment_file = ExperimentFile.query.filter_by(experiment_id=experiment_id, id=file_id).first()
+        if not experiment_file:
+            abort(404, "Experiment file {} doesn't exist".format(file_id))
+        db.session.delete(experiment_file)
+        db.session.commit()
+        return {}, 204
 
 
 class ExperimentAnalysisListController(Resource):
