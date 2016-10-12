@@ -116,7 +116,7 @@ class ExperimentFile(Base):
     # because of huge files (>1TB) possible, we need BigInteger to store it
     # PostgreSQL: http://www.postgresql.org/docs/current/static/datatype-numeric.html
     # bigint(8 bytes storage size). Range: -9223372036854775808 to +9223372036854775807
-    size = db.Column(db.BigInteger)
+    size_in_bytes = db.Column(db.BigInteger)
     name = db.Column(db.String(255), nullable=False, default='')
     path = db.Column(db.String(255), nullable=False, default='')
     # a file within a directory has the parent set to that directory's id
@@ -131,9 +131,9 @@ class ExperimentFile(Base):
     group = db.Column(db.String(40), default='upload')
 
     # constructor
-    def __init__(self, experiment_id, size, name, path, mime_type, file_type, parent=None, group='upload'):
+    def __init__(self, experiment_id, size_in_bytes, name, path, mime_type, file_type, parent=None, group='upload'):
         self.experiment_id = experiment_id
-        self.size = size
+        self.size_in_bytes = size_in_bytes
         self.name = name
         self.path = path
         self.parent = parent
@@ -150,7 +150,7 @@ class ExperimentFileSchema(BaseSchema):
     type = fields.Str(dump_only=True)
     experiment_id = fields.Int(dump_only=True)
     # python integer type can store very large numbers, there is no other data type like bigint
-    size = fields.Int(dump_only=True)
+    size_in_bytes = fields.Int(dump_only=True)
     name = fields.Str()
     path = fields.Str(dump_only=True)
     parent = fields.Str()
