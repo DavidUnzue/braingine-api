@@ -1,14 +1,14 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
 
-import urllib, os, werkzeug, magic
+import urllib, os, werkzeug, magic, json
 from flask import abort, make_response, current_app
 from flask.ext.restful import Resource, reqparse
 # Import db instance
 from server import db
 # Import models from models.py file
 # IMPORTANT!: this has to be done after the DB gets instantiated and in this case imported too
-from server.models import Experiment, ExperimentSchema, ExperimentFile, ExperimentFileSchema, ExperimentAnalysis, ExperimentAnalysisSchema
+from server.models import Experiment, ExperimentSchema, ExperimentFile, ExperimentFileSchema, ExperimentAnalysis, ExperimentAnalysisSchema, ExperimentAnalysisParameter, ExperimentAnalysisParameterSchema
 from server.utils import sha1_string
 # http://stackoverflow.com/a/30399108
 from . import api, tasks
@@ -259,7 +259,6 @@ class ExperimentAnalysisListController(Resource):
     # example object
     # {
     #     "pipeline_id": "examplePipeline",
-    #     "command": "sh ./examplePipeline.sh $input1 $input2 $output",
     #     "parameters": {
     #     	"inputs": [
     #     		{"input1": "'This is a test'"},
@@ -283,18 +282,32 @@ class ExperimentAnalysisListController(Resource):
         pipeline_parameters.update(input_params)
         pipeline_parameters.update(output_params)
 
+        # get pipeline command
+        with open('{}/{}.json'.format(current_app.config.get('PIPELINES_FOLDER'), args['pipeline_id'])) as pipeline_definition_file:
+            pipeline_definition = json.load(pipeline_definition_file)
+            pipeline_command = pipeline_definition['command']
+
         # write params into command template
-        pipeline_command = args['command']
         pipeline_command = Template(pipeline_command)
         final_pipeline_command = pipeline_command.substitute(pipeline_parameters)
 
+        # send task to celery and store it in a variable for returning task id in location header
         task = execute_command.delay(final_pipeline_command)
-        # experiment_analysis = ExperimentAnalysis(experiment_id=experiment_id, pipeline_id=args['pipeline_id'], inputs=inputs, outputs=outputs)
-        # db.session.add(experiment_analysis)
-        # db.session.commit()
-        # result = experiment_analysis_schema.dump(experiment_analysis).data
 
-        return {}, 202, {'Location': api.url_for(tasks.TaskStatusController, task_id=task.id)}
+        # add DB entry for analysis
+        experiment_analysis = ExperimentAnalysis(experiment_id=experiment_id, pipeline_id=args['pipeline_id'])
+        db.session.add(experiment_analysis)
+        db.session.commit()
+
+        # add DB entries for parameters for the analysis created before
+        for name, value in pipeline_parameters.iteritems():
+            analysis_parameters = ExperimentAnalysisParameter(experiment_analysis_id=experiment_analysis.id, parameter_name=name, parameter_value=value)
+            db.session.add(analysis_parameters)
+            db.session.commit()
+
+        result = experiment_analysis_schema.dump(experiment_analysis).data
+
+        return result, 202, {'Location': api.url_for(tasks.TaskStatusController, task_id=task.id)}
 
 
 class ExperimentAnalysisController(Resource):

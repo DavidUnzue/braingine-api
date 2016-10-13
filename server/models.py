@@ -240,15 +240,11 @@ class ExperimentAnalysis(Base):
 
     # one-to-many relationship to experiment analysis parameters
     # An experiment analysis contains one or more parameters
-    parameters = db.relationship('ExperimentAnalysisParameter', backref='experiment_analyses',
-                                lazy='select', cascade="all, delete-orphan")
+    parameters = db.relationship('ExperimentAnalysisParameter', backref='experiment_analyses', lazy='select', cascade="all, delete-orphan")
 
-    def __init__(self, experiment_id, pipeline_id, parameters):
+    def __init__(self, experiment_id, pipeline_id):
         self.experiment_id = experiment_id
         self.pipeline_id = pipeline_id
-        self.parameters = parameters
-        # self.inputs = inputs
-        # self.outputs = outputs
 
     def __repr__(self):
         return '<Experiment analysis {}>'.format(self.id)
@@ -256,9 +252,15 @@ class ExperimentAnalysis(Base):
 
 class ExperimentAnalysisSchema(BaseSchema):
     experiment_id = fields.Int(dump_only=True)
-    pipeline_id = fields.Int()
-    inputs = fields.Nested(ExperimentAnalysisParameterSchema, many=True)
-    outputs = fields.Nested(ExperimentAnalysisParameterSchema, many=True)
+    pipeline_id = fields.Str() # pipeline id is a unique String, usually the pipeline file name wihtout extension
+
+    parameters = fields.Relationship(
+        related_url='/api/experiments/{experiment_id}/analyses/{id}',
+        related_url_kwargs={'experiment_id': '<id>', 'id': '<id>'},
+        # Include resource linkage
+        many=True, include_resource_linkage=True,
+        type_='analyses'
+    )
 
     class Meta:
         type_ = 'analyses'

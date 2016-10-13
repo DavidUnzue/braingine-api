@@ -13,14 +13,13 @@ import json
 pipeline_schema = PipelineSchema()
 
 parser = reqparse.RequestParser()
-PIPELINES_FOLDER = './pipelines' # without trailing slash
 
 class PipelineListController(Resource):
     def get(self):
         from os import listdir
         from os.path import isfile, join
         # get json files (pipeline definition files) from pipelines folder
-        pipeline_files = [f for f in listdir(PIPELINES_FOLDER) if isfile(join(PIPELINES_FOLDER, f)) and f.endswith(".json")]
+        pipeline_files = [f for f in listdir(current_app.config.get('PIPELINES_FOLDER')) if isfile(join(current_app.config.get('PIPELINES_FOLDER'), f)) and f.endswith(".json")]
 
         # parser.add_argument('page', type=int, default=1, location=['args'])
         # parsed_args = parser.parse_args()
@@ -46,7 +45,7 @@ class PipelineController(Resource):
         # parsed_args = parser.parse_args()
         # pipeline_filename = parsed_args['pipeline_filename']
 
-        with open('{}/{}.json'.format(PIPELINES_FOLDER, pipeline_filename)) as pipeline_definition_file:
+        with open('{}/{}.json'.format(current_app.config.get('PIPELINES_FOLDER'), pipeline_filename)) as pipeline_definition_file:
             pipeline_definition = json.load(pipeline_definition_file)
 
         # pipeline_input = pipeline_definition["inputs"][0]
