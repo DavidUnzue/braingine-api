@@ -9,7 +9,7 @@ from server import db
 # Import models from models.py file
 # IMPORTANT!: this has to be done after the DB gets instantiated and in this case imported too
 from server.models import Experiment, ExperimentSchema, ExperimentFile, ExperimentFileSchema, ExperimentAnalysis, ExperimentAnalysisSchema, ExperimentAnalysisParameter, ExperimentAnalysisParameterSchema
-from server.utils import sha1_string
+from server.utils import sha1_string, connect_ssh, write_remote_file
 # http://stackoverflow.com/a/30399108
 from . import api, tasks
 # celery task
@@ -61,9 +61,6 @@ class ExperimentListController(Resource):
             page_next = None
             if pagination.has_next:
                 page_next = api.url_for(self, page=page+1, _external=True)
-
-        # if not experiments:
-        #     return [], 200
 
         result = experiment_schema.dump(experiments, many=True).data
 
@@ -140,14 +137,8 @@ class ExperimentFileListController(Resource):
         # get experiment
         experiment = Experiment.query.get(experiment_id)
 
-        # setup uploads folder
-        # see https://web.archive.org/web/20160331205619/http://stackoverflow.com/questions/273192/how-to-check-if-a-directory-exists-and-create-it-if-necessary
+        # setup uploads folder for experiment files
         file_folder = os.path.join(current_app.config.get('UPLOAD_FOLDER'), sha1_string(experiment.name))
-        try:
-            os.makedirs(file_folder)
-        except OSError:
-            if not os.path.isdir(file_folder):
-                abort(404, "Unable to access {}".format(file_folder))
 
         # define file path
         file_path = os.path.join(file_folder, file_name)
@@ -155,9 +146,18 @@ class ExperimentFileListController(Resource):
         # upload file
         if newFile:
             # file format is in allowed formats list defined in config
-            if self.is_allowed_file(newFile.filename):
+            if self.is_allowed_file(file_name):
+
+                # initialize file handle for magic file type detection
+                fh_magic = magic.Magic(magic_file=current_app.config.get('BIOINFO_MAGIC_FILE'))
+
+                # connect to remote file storage server
+                ssh = connect_ssh(current_app.config.get('COMPUTING_SERVER_IP'), current_app.config.get('COMPUTING_SERVER_USER'), current_app.config.get('COMPUTING_SERVER_PASSWORD'))
+
                 # handle chunked file upload
                 if parsed_args['Content-Range']:
+                    # get file chunk contents
+                    file_buffer = newFile.stream.read()
                     # extract byte numbers from Content-Range header string
                     content_range = parsed_args['Content-Range']
                     range_str = content_range.split(' ')[1]
@@ -165,19 +165,17 @@ class ExperimentFileListController(Resource):
                     end_bytes = int(range_str.split('-')[1].split('/')[0])
                     total_bytes = int(range_str.split('/')[1])
 
-                    # append chunk to the file on disk, or create new
-                    with open(file_path, 'a') as f:
-                        f.seek(start_bytes)
-                        f.write(newFile.stream.read())
+                    # append chunk to the file on remote server, or create new
+                    write_remote_file(ssh, file_folder, file_name, file_buffer)
+
+                    # get bioinformatic file type using magic on the first chunk of the file
+                    if start_bytes == 0:
+                        file_type = fh_magic.from_buffer(file_buffer)
 
                     # check if these are the last bytes
                     # if so, create experiment
                     if end_bytes >= (total_bytes - 1):
-                        # get bioinformatic file type using magic
-                        fh = magic.Magic(magic_file=current_app.config.get('BIOINFO_MAGIC_FILE'))
-                        file_type = fh.from_file(file_path)
-                        file_size = os.stat(file_path).st_size
-                        experimentFile = ExperimentFile(experiment_id=experiment_id, size_in_bytes=file_size, name=file_name, path=file_path, mime_type=mimetype, file_type=file_type)
+                        experimentFile = ExperimentFile(experiment_id=experiment_id, size_in_bytes=total_bytes, name=file_name, path=file_path, mime_type=mimetype, file_type=file_type)
                         db.session.add(experimentFile)
                         db.session.commit()
                         result = experiment_file_schema.dump(experimentFile, many=False).data
@@ -186,14 +184,17 @@ class ExperimentFileListController(Resource):
                     else:
                         return range_str, 201
 
-                # handle small/complete file upload
-                # Check if the file is one of the allowed types/extensions
+                # handle small/non-chunked file upload
                 else:
-                    newFile.save(file_path)
-                    # get bioinformatic file type using magic
-                    fh = magic.Magic(magic_file=current_app.config.get('BIOINFO_MAGIC_FILE'))
-                    file_type = fh.from_file(file_path)
-                    file_size = os.stat(file_path).st_size
+
+                    file_buffer = newFile.read()
+
+                    file_type = fh_magic.from_buffer(file_buffer)
+
+                    write_remote_file(ssh, file_folder, file_name, file_buffer)
+
+                    file_size = len(file_buffer)
+
                     experimentFile = ExperimentFile(experiment_id=experiment_id, size_in_bytes=file_size, name=file_name, path=file_path, mime_type=mimetype, file_type=file_type)
                     db.session.add(experimentFile)
                     db.session.commit()

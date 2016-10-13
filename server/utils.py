@@ -1,6 +1,7 @@
 import os, errno, hashlib, shutil
 # ssh package
-from pexpect import pxssh
+import paramiko
+# from pexpect import pxssh
 
 
 # def create_dir(directory):
@@ -66,8 +67,29 @@ def connect_ssh(server, user, password):
     Establish a connection to a server through SSH
     """
     try:
-        connection = pxssh.pxssh()
-        connection.login(server, user, password)
-    except pxssh.ExceptionPxssh as e:
+        ssh = paramiko.SSHClient()
+        ssh.set_missing_host_key_policy(paramiko.AutoAddPolicy())
+        ssh.connect(server, username=user, password=password)
+        # connection = pxssh.pxssh()
+        # connection.login(server, user, password)
+    # except pxssh.ExceptionPxssh as e:
+    except paramiko.ssh_exception.AuthenticationException as e:
         abort(404, "Unable to connect to server through SSH.")
-    return connection
+    return ssh
+
+def write_remote_file(ssh, remote_folder, filename, data):
+    """
+    Transfer a file chunk to a server through sqlalchemy-flask-after-insert-update-delete
+    """
+    sftp = ssh.open_sftp()
+    # create destination folder if it does not exist
+    try:
+        sftp.chdir(remote_folder) # test if remote folder exists
+    except IOError:
+        sftp.mkdir(remote_folder)  # Create remote_path
+        sftp.chdir(remote_folder)
+    # append data chunk to file
+    with sftp.open(remote_folder + '/' + filename, 'a') as f:
+        f.write(data)
+    sftp.close()
+    ssh.close()
