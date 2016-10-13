@@ -11,6 +11,7 @@ class Config(object):
     SQLALCHEMY_TRACK_MODIFICATIONS = True
     # This is the path to the directory where files will be uploaded to
     UPLOAD_FOLDER = './uploads'
+    PIPELINES_FOLDER = './pipelines' # without trailing slash
     CELERY_RESULT_BACKEND = 'redis://'
     CELERY_BROKER_URL = 'redis://localhost:6379/0'
     # These are the extension that we are accepting to be uploaded
