@@ -9,8 +9,10 @@ class Config(object):
     # disable warning 'SQLALCHEMY_TRACK_MODIFICATIONS adds significant overhead and will be disabled by default in the future.  Set it to True to suppress this warning'
     # this is needed in order to detect delete cascades and execute some code when that happens, such as deleting files when experiment gets deleted
     SQLALCHEMY_TRACK_MODIFICATIONS = True
+    # max. file size for uploaded file chunks per request
+    #MAX_CONTENT_LENGTH = 8 * 1024 * 1024 # 8 MB
     # This is the path to the directory where files will be uploaded to
-    UPLOAD_FOLDER = './uploads'
+    UPLOAD_FOLDER = '/storage/scic/Data/External/butler_uploads'
     PIPELINES_FOLDER = './pipelines' # without trailing slash
     CELERY_RESULT_BACKEND = 'redis://'
     CELERY_BROKER_URL = 'redis://localhost:6379/0'

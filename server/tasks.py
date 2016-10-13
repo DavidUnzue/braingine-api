@@ -13,7 +13,7 @@ celery = create_celery_app()
 
 @celery.task()
 def execute_command(cmd):
-    ssh = connect_ssh(current_app.config.get('SSH_SERVER'), current_app.config.get('SSH_USER'), current_app.config.get('SSH_PASSWORD'))
+    ssh = connect_ssh(current_app.config.get('COMPUTING_SERVER'), current_app.config.get('COMPUTING_SERVER_USER'), current_app.config.get('COMPUTING_SERVER_PASSWORD'))
     ssh.sendline(cmd)
     ssh.prompt()
     output = ssh.before
