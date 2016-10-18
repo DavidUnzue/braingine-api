@@ -119,6 +119,7 @@ class ExperimentFile(Base):
     size_in_bytes = db.Column(db.BigInteger)
     name = db.Column(db.String(255), nullable=False, default='')
     path = db.Column(db.String(255), nullable=False, default='')
+    folder = db.Column(db.String(255), nullable=False, default='')
     # a file within a directory has the parent set to that directory's id
     parent = db.Column(db.Integer, nullable=True)
     # hash string will be generated from file name using SHA1 hashing, see event "hash_before_insert"
@@ -131,11 +132,12 @@ class ExperimentFile(Base):
     group = db.Column(db.String(40), default='upload')
 
     # constructor
-    def __init__(self, experiment_id, size_in_bytes, name, path, mime_type, file_type, parent=None, group='upload'):
+    def __init__(self, experiment_id, size_in_bytes, name, path, folder, mime_type, file_type, parent=None, group='upload'):
         self.experiment_id = experiment_id
         self.size_in_bytes = size_in_bytes
         self.name = name
         self.path = path
+        self.folder = folder
         self.parent = parent
         self.mime_type = mime_type
         self.file_type = file_type
@@ -153,6 +155,7 @@ class ExperimentFileSchema(BaseSchema):
     size_in_bytes = fields.Int(dump_only=True)
     name = fields.Str()
     path = fields.Str(dump_only=True)
+    folder = fields.Str(dump_only=True)
     parent = fields.Str()
     sha = fields.Str()
     mime_type = fields.Str(dump_only=True)

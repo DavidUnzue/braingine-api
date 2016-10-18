@@ -77,9 +77,23 @@ def connect_ssh(server, user, password):
         abort(404, "Unable to connect to server through SSH.")
     return ssh
 
-def write_remote_file(ssh, remote_folder, filename, data):
+
+def write_file(dest_folder, filename, data):
     """
-    Transfer a file chunk to a server through sqlalchemy-flask-after-insert-update-delete
+    Write a file or file chunk to disk locally
+    """
+    try:
+        os.makedirs(dest_folder)
+    except OSError:
+        if not os.path.isdir(dest_folder):
+            raise
+    with open(dest_folder + '/' + filename, 'a') as f:
+        f.write(data)
+
+
+def write_file_remote(ssh, remote_folder, filename, data):
+    """
+    Transfer a file chunk to a server through sftp
     """
     sftp = ssh.open_sftp()
     # create destination folder if it does not exist
