@@ -9,7 +9,7 @@ from server import db
 # Import models from models.py file
 # IMPORTANT!: this has to be done after the DB gets instantiated and in this case imported too
 from server.models import Experiment, ExperimentSchema, ExperimentFile, ExperimentFileSchema, ExperimentAnalysis, ExperimentAnalysisSchema, ExperimentAnalysisParameter, ExperimentAnalysisParameterSchema
-from server.utils import sha1_string, connect_ssh, write_remote_file
+from server.utils import sha1_string, connect_ssh, write_file, write_file_remote
 # http://stackoverflow.com/a/30399108
 from . import api, tasks
 # celery task
@@ -148,11 +148,9 @@ class ExperimentFileListController(Resource):
             # file format is in allowed formats list defined in config
             if self.is_allowed_file(file_name):
 
-                # initialize file handle for magic file type detection
-                fh_magic = magic.Magic(magic_file=current_app.config.get('BIOINFO_MAGIC_FILE'))
 
                 # connect to remote file storage server
-                ssh = connect_ssh(current_app.config.get('COMPUTING_SERVER_IP'), current_app.config.get('COMPUTING_SERVER_USER'), current_app.config.get('COMPUTING_SERVER_PASSWORD'))
+                # ssh = connect_ssh(current_app.config.get('COMPUTING_SERVER_IP'), current_app.config.get('COMPUTING_SERVER_USER'), current_app.config.get('COMPUTING_SERVER_PASSWORD'))
 
                 # handle chunked file upload
                 if parsed_args['Content-Range']:
@@ -166,16 +164,21 @@ class ExperimentFileListController(Resource):
                     total_bytes = int(range_str.split('/')[1])
 
                     # append chunk to the file on remote server, or create new
-                    write_remote_file(ssh, file_folder, file_name, file_buffer)
+                    # write_file_remote(ssh, file_folder, file_name, file_buffer)
+                    write_file(file_folder, file_name, file_buffer)
 
                     # get bioinformatic file type using magic on the first chunk of the file
-                    if start_bytes == 0:
-                        file_type = fh_magic.from_buffer(file_buffer)
+                    # if start_bytes == 0:
+                    #     file_type = fh_magic.from_buffer(file_buffer)
 
                     # check if these are the last bytes
                     # if so, create experiment
                     if end_bytes >= (total_bytes - 1):
-                        experimentFile = ExperimentFile(experiment_id=experiment_id, size_in_bytes=total_bytes, name=file_name, path=file_path, mime_type=mimetype, file_type=file_type)
+                        # initialize file handle for magic file type detection
+                        fh_magic = magic.Magic(magic_file=current_app.config.get('BIOINFO_MAGIC_FILE'))
+                        # get bioinformatic file type using magic on the first chunk of the file
+                        file_type = fh_magic.from_buffer(file_buffer)
+                        experimentFile = ExperimentFile(experiment_id=experiment_id, size_in_bytes=total_bytes, name=file_name, path=file_path, folder=file_folder, mime_type=mimetype, file_type=file_type)
                         db.session.add(experimentFile)
                         db.session.commit()
                         result = experiment_file_schema.dump(experimentFile, many=False).data
@@ -189,13 +192,17 @@ class ExperimentFileListController(Resource):
 
                     file_buffer = newFile.read()
 
+                    # initialize file handle for magic file type detection
+                    fh_magic = magic.Magic(magic_file=current_app.config.get('BIOINFO_MAGIC_FILE'))
+                    # get bioinformatic file type using magic on the first chunk of the file
                     file_type = fh_magic.from_buffer(file_buffer)
 
-                    write_remote_file(ssh, file_folder, file_name, file_buffer)
+                    # write_file_remote(ssh, file_folder, file_name, file_buffer)
+                    write_file(file_folder, file_name, file_buffer)
 
                     file_size = len(file_buffer)
 
-                    experimentFile = ExperimentFile(experiment_id=experiment_id, size_in_bytes=file_size, name=file_name, path=file_path, mime_type=mimetype, file_type=file_type)
+                    experimentFile = ExperimentFile(experiment_id=experiment_id, size_in_bytes=file_size, name=file_name, path=file_path, folder=file_folder, mime_type=mimetype, file_type=file_type)
                     db.session.add(experimentFile)
                     db.session.commit()
                     result = experiment_file_schema.dump(experimentFile, many=False).data
@@ -224,14 +231,44 @@ class ExperimentFileListController(Resource):
 
 class ExperimentFileController(Resource):
 
-    @api.representation('text/tab-separated-values')
-    def get(self, experiment_id, file_id):
+    # Flask Restful representations (i.e. @api.representation('text/tsv')) don't work for content negotiation here, since they apply to the api level, and not to a single resource level. That's why it isn't possible to create resource specific content negotiation.
+
+    def download_file(self, experiment_file, attachment=False):
+        """Makes a Flask response with the corresponding content-type encoded body"""
+        from flask import send_file
+        return send_file(experiment_file.path, mimetype=experiment_file.mime_type, as_attachment=attachment)
+
+    # when request contains header: "Accept: text/tsv"
+    # def output_tsv(self, experiment_file, code):
+    #     """Makes a Flask response with a tab-separated-values' encoded body"""
+    #     from flask import send_file
+    #     return send_file(experiment_file.path, mimetype='text/tsv', as_attachment=False)
+        # with open(experiment_file.path, 'r') as data_file:
+        #     data = data_file.read()
+        # resp = make_response(data, code)
+        # # resp.headers.extend(headers or {})
+        # resp.headers['content-type'] = 'text/tsv'
+        # resp.headers['Content-Disposition'] = 'attachment'
+        # return resp
+
+    @use_args({
+        'accept': fields.Str(load_from='Accept', location='headers'), # default is */* for accepting everything
+        'download': fields.Boolean(location='querystring', missing=False) # force download or not
+    })
+    def get(self, args, experiment_id, file_id):
         experiment_file = ExperimentFile.query.filter_by(experiment_id=experiment_id, id=file_id).first()
-        with open(experiment_file.path, 'r') as data_file:
-            data = data_file.read()
-        resp = make_response(data, 200)
-        resp.headers['content-type'] = 'text/tab-separated-values'
-        return resp
+        if not experiment_file:
+            abort(404, "Experiment file {} doesn't exist".format(file_id))
+        # metadata as json requested
+        if (args['accept'] == 'application/json'):
+            result = experiment_file_schema.dump(experiment_file, many=False).data
+            return result, 200
+        # otherwise send file contents
+        elif (args['accept'] == experiment_file.mime_type or args['accept'] == '*/*'):
+            return self.download_file(experiment_file, args['download'])
+        # not acceptable content-type requested
+        else:
+            abort(406, "The resource identified by the request is only capable of generating response entities which have content characteristics not acceptable according to the accept headers sent in the request.")
 
     def delete(self, experiment_id, file_id):
         experiment_file = ExperimentFile.query.filter_by(experiment_id=experiment_id, id=file_id).first()

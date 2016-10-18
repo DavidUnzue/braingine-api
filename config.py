@@ -12,7 +12,8 @@ class Config(object):
     # max. file size for uploaded file chunks per request
     #MAX_CONTENT_LENGTH = 8 * 1024 * 1024 # 8 MB
     # This is the path to the directory where files will be uploaded to
-    UPLOAD_FOLDER = '/storage/scic/Data/External/butler_uploads'
+    # UPLOAD_FOLDER = '/storage/scic/Data/External/butler_uploads'
+    UPLOAD_FOLDER = '/Users/davidunzue/Projects/butler-api/uploads'
     PIPELINES_FOLDER = './pipelines' # without trailing slash
     CELERY_RESULT_BACKEND = 'redis://'
     CELERY_BROKER_URL = 'redis://localhost:6379/0'
@@ -28,6 +29,7 @@ class Config(object):
 class ProductionConfig(Config):
     DEBUG = False
     SQLALCHEMY_DATABASE_URI = 'postgresql://localhost/butler'
+    USE_X_SENDFILE = True
 
     @classmethod
     def init_app(cls, app):
