@@ -87,8 +87,16 @@ def write_file(dest_folder, filename, data):
     except OSError:
         if not os.path.isdir(dest_folder):
             raise
-    with open(dest_folder + '/' + filename, 'a') as f:
-        f.write(data)
+    # with open(dest_folder + '/' + filename, 'a') as f:
+    #     f.write(data)
+
+    with open(dest_folder + '/' + filename, "wb") as f:
+        chunk_size = 8 * 1024 * 1024 # 8MB
+        while True:
+            chunk = data.stream.read()
+            if len(chunk) == 0:
+                return
+            f.write(chunk)
 
 
 def write_file_remote(ssh, remote_folder, filename, data):
@@ -103,7 +111,15 @@ def write_file_remote(ssh, remote_folder, filename, data):
         sftp.mkdir(remote_folder)  # Create remote_path
         sftp.chdir(remote_folder)
     # append data chunk to file
-    with sftp.open(remote_folder + '/' + filename, 'a') as f:
-        f.write(data)
+    # with sftp.open(remote_folder + '/' + filename, 'a') as f:
+    #     f.write(data)
+    with sftp.open(remote_folder + '/' + filename, "wb") as f:
+        chunk_size = 8 * 1024 * 1024 # 8MB
+        while True:
+            chunk = data.stream.read()
+            if len(chunk) == 0:
+                sftp.close()
+                ssh.close()
+            f.write(chunk)
     sftp.close()
     ssh.close()
