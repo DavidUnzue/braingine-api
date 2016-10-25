@@ -125,7 +125,7 @@ class ExperimentFileListController(Resource):
     def post(self, experiment_id):
         # get uploaded file
         parsed_args = parser.parse_args()
-        newFile = parsed_args['files[]'][0] #TODO handle multiple files
+        newFile = parsed_args['files[]'][0] # only one file per post request
 
         # get file type
         # http://werkzeug.pocoo.org/docs/0.11/datastructures/#werkzeug.datastructures.FileStorage
@@ -150,7 +150,7 @@ class ExperimentFileListController(Resource):
 
 
                 # connect to remote file storage server
-                # ssh = connect_ssh(current_app.config.get('COMPUTING_SERVER_IP'), current_app.config.get('COMPUTING_SERVER_USER'), current_app.config.get('COMPUTING_SERVER_PASSWORD'))
+                ssh = connect_ssh(current_app.config.get('COMPUTING_SERVER_IP'), current_app.config.get('COMPUTING_SERVER_USER'), current_app.config.get('COMPUTING_SERVER_PASSWORD'))
 
                 # handle chunked file upload
                 if parsed_args['Content-Range']:
@@ -163,9 +163,9 @@ class ExperimentFileListController(Resource):
                     end_bytes = int(range_str.split('-')[1].split('/')[0])
                     total_bytes = int(range_str.split('/')[1])
 
-                    # append chunk to the file on remote server, or create new
+                    # append chunk to the file on server, or create new
                     # write_file_remote(ssh, file_folder, file_name, file_buffer)
-                    write_file(file_folder, file_name, file_buffer)
+                    #write_file(file_folder, file_name, file_buffer)
 
                     # get bioinformatic file type using magic on the first chunk of the file
                     # if start_bytes == 0:
@@ -190,23 +190,25 @@ class ExperimentFileListController(Resource):
                 # handle small/non-chunked file upload
                 else:
 
-                    file_buffer = newFile.read()
+                    # file_buffer = newFile.read()
 
                     # initialize file handle for magic file type detection
-                    fh_magic = magic.Magic(magic_file=current_app.config.get('BIOINFO_MAGIC_FILE'))
+                    # fh_magic = magic.Magic(magic_file=current_app.config.get('BIOINFO_MAGIC_FILE'))
                     # get bioinformatic file type using magic on the first chunk of the file
-                    file_type = fh_magic.from_buffer(file_buffer)
+                    # file_type = fh_magic.from_buffer(file_buffer)
+                    file_type = "test"
 
-                    # write_file_remote(ssh, file_folder, file_name, file_buffer)
-                    write_file(file_folder, file_name, file_buffer)
+                    write_file_remote(ssh, file_folder, file_name, newFile)
+                    # write_file(file_folder, file_name, newFile)
 
-                    file_size = len(file_buffer)
-
-                    experimentFile = ExperimentFile(experiment_id=experiment_id, size_in_bytes=file_size, name=file_name, path=file_path, folder=file_folder, mime_type=mimetype, file_type=file_type)
-                    db.session.add(experimentFile)
-                    db.session.commit()
-                    result = experiment_file_schema.dump(experimentFile, many=False).data
-                    return result, 201
+                    # file_size = len(file_buffer)
+                    # file_size = newFile.content_length
+                    #
+                    # experimentFile = ExperimentFile(experiment_id=experiment_id, size_in_bytes=file_size, name=file_name, path=file_path, folder=file_folder, mime_type=mimetype, file_type=file_type)
+                    # db.session.add(experimentFile)
+                    # db.session.commit()
+                    # result = experiment_file_schema.dump(experimentFile, many=False).data
+                    return {}, 201
             # file format not in allowed files list
             else:
                 abort(404, "File format is not allowed")
