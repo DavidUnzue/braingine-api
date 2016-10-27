@@ -33,8 +33,6 @@ parser.add_argument('experimenter', location=['form', 'json'])
 parser.add_argument('species', location=['form', 'json'])
 parser.add_argument('tissue', location=['form', 'json'])
 parser.add_argument('information', location=['form', 'json'])
-parser.add_argument('files[]', action='append', type=werkzeug.datastructures.FileStorage, location=['files'])
-parser.add_argument('Content-Range', location=['headers'])
 parser.add_argument('q', location=['args'])
 
 
@@ -122,7 +120,11 @@ class ExperimentFileListController(Resource):
         return '.' in filename and \
                filename.rsplit('.', 1)[1] in current_app.config.get('ALLOWED_EXTENSIONS')
 
-    def post(self, experiment_id):
+    @use_args({
+        'content-range': fields.Str(load_from='Content-Range', location='headers', missing=False)
+    })
+    def post(self, args, experiment_id):
+        parser.add_argument('files[]', action='append', type=werkzeug.datastructures.FileStorage, location=['files']) # TODO add custom marshmallow field
         # get uploaded file
         parsed_args = parser.parse_args()
         newFile = parsed_args['files[]'][0] # only one file per post request
@@ -152,20 +154,23 @@ class ExperimentFileListController(Resource):
                 # connect to remote file storage server
                 ssh = connect_ssh(current_app.config.get('COMPUTING_SERVER_IP'), current_app.config.get('COMPUTING_SERVER_USER'), current_app.config.get('COMPUTING_SERVER_PASSWORD'))
 
+                print args['content-range']
+                
                 # handle chunked file upload
-                if parsed_args['Content-Range']:
+                if args['content-range']:
                     # get file chunk contents
-                    file_buffer = newFile.stream.read()
+                    file_buffer = newFile.stream.read(1024)
+                    newFile.stream.seek()
+
                     # extract byte numbers from Content-Range header string
-                    content_range = parsed_args['Content-Range']
+                    content_range = args['content-range']
                     range_str = content_range.split(' ')[1]
                     start_bytes = int(range_str.split('-')[0])
                     end_bytes = int(range_str.split('-')[1].split('/')[0])
                     total_bytes = int(range_str.split('/')[1])
 
                     # append chunk to the file on server, or create new
-                    # write_file_remote(ssh, file_folder, file_name, file_buffer)
-                    #write_file(file_folder, file_name, file_buffer)
+                    write_file(file_folder, file_name, newFile)
 
                     # get bioinformatic file type using magic on the first chunk of the file
                     # if start_bytes == 0:
@@ -190,25 +195,24 @@ class ExperimentFileListController(Resource):
                 # handle small/non-chunked file upload
                 else:
 
-                    # file_buffer = newFile.read()
+                    file_buffer = newFile.stream.read(1024)
+                    newFile.stream.seek()
 
                     # initialize file handle for magic file type detection
-                    # fh_magic = magic.Magic(magic_file=current_app.config.get('BIOINFO_MAGIC_FILE'))
+                    fh_magic = magic.Magic(magic_file=current_app.config.get('BIOINFO_MAGIC_FILE'))
                     # get bioinformatic file type using magic on the first chunk of the file
-                    # file_type = fh_magic.from_buffer(file_buffer)
-                    file_type = "test"
+                    file_type = fh_magic.from_buffer(file_buffer)
 
-                    write_file_remote(ssh, file_folder, file_name, newFile)
-                    # write_file(file_folder, file_name, newFile)
+                    # write_file_remote(ssh, file_folder, file_name, newFile)
+                    write_file(file_folder, file_name, newFile)
 
-                    # file_size = len(file_buffer)
-                    # file_size = newFile.content_length
-                    #
-                    # experimentFile = ExperimentFile(experiment_id=experiment_id, size_in_bytes=file_size, name=file_name, path=file_path, folder=file_folder, mime_type=mimetype, file_type=file_type)
-                    # db.session.add(experimentFile)
-                    # db.session.commit()
-                    # result = experiment_file_schema.dump(experimentFile, many=False).data
-                    return {}, 201
+                    file_size = len(file_buffer)
+
+                    experimentFile = ExperimentFile(experiment_id=experiment_id, size_in_bytes=file_size, name=file_name, path=file_path, folder=file_folder, mime_type=mimetype, file_type=file_type)
+                    db.session.add(experimentFile)
+                    db.session.commit()
+                    result = experiment_file_schema.dump(experimentFile, many=False).data
+                    return result, 201
             # file format not in allowed files list
             else:
                 abort(404, "File format is not allowed")
