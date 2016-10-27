@@ -78,7 +78,7 @@ def connect_ssh(server, user, password):
     return ssh
 
 
-def write_file(dest_folder, filename, data):
+def write_file(dest_folder, filename, file_object):
     """
     Write a file or file chunk to disk locally
     """
@@ -87,13 +87,26 @@ def write_file(dest_folder, filename, data):
     except OSError:
         if not os.path.isdir(dest_folder):
             raise
-    # with open(dest_folder + '/' + filename, 'a') as f:
-    #     f.write(data)
+
+    with open(dest_folder + '/' + filename, "wb") as f:
+        chunk = file_object.stream.read()
+        f.write(chunk)
+
+
+def write_file_in_chunks(dest_folder, filename, file_object):
+    """
+    Write a file or file chunk to disk locally
+    """
+    try:
+        os.makedirs(dest_folder)
+    except OSError:
+        if not os.path.isdir(dest_folder):
+            raise
 
     with open(dest_folder + '/' + filename, "wb") as f:
         chunk_size = 8 * 1024 * 1024 # 8MB
         while True:
-            chunk = data.stream.read()
+            chunk = file_object.stream.read(chunk_size)
             if len(chunk) == 0:
                 return
             f.write(chunk)
