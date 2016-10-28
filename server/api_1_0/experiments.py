@@ -4,6 +4,7 @@
 import urllib, os, werkzeug, magic, json
 from flask import abort, make_response, current_app
 from flask.ext.restful import Resource, reqparse
+from flask.ext.httpauth import HTTPBasicAuth
 # Import db instance
 from server import db
 # Import models from models.py file
@@ -19,6 +20,8 @@ from sqlalchemy import or_
 # webargs for request parsing instead of flask restful's reqparse
 from webargs import fields, validate
 from webargs.flaskparser import parser as webargs_parser, use_args
+
+auth = HTTPBasicAuth()
 
 experiment_schema = ExperimentSchema()
 experiment_file_schema = ExperimentFileSchema()
@@ -37,6 +40,8 @@ parser.add_argument('q', location=['args'])
 
 
 class ExperimentListController(Resource):
+    decorators = [auth.login_required]
+    
     def get(self):
         parser.add_argument('page', type=int, default=1, location=['args'])
         parsed_args = parser.parse_args()
@@ -121,7 +126,7 @@ class ExperimentFileListController(Resource):
                filename.rsplit('.', 1)[1] in current_app.config.get('ALLOWED_EXTENSIONS')
 
     @use_args({
-        'content-range': fields.Str(load_from='Content-Range', location='headers', missing=False)
+        'content-range': fields.Str(load_from='Content-Range', location='headers', missing=None)
     })
     def post(self, args, experiment_id):
         parser.add_argument('files[]', action='append', type=werkzeug.datastructures.FileStorage, location=['files']) # TODO add custom marshmallow field
@@ -152,15 +157,13 @@ class ExperimentFileListController(Resource):
 
 
                 # connect to remote file storage server
-                ssh = connect_ssh(current_app.config.get('COMPUTING_SERVER_IP'), current_app.config.get('COMPUTING_SERVER_USER'), current_app.config.get('COMPUTING_SERVER_PASSWORD'))
+                # ssh = connect_ssh(current_app.config.get('COMPUTING_SERVER_IP'), current_app.config.get('COMPUTING_SERVER_USER'), current_app.config.get('COMPUTING_SERVER_PASSWORD'))
 
-                print args['content-range']
-                
                 # handle chunked file upload
                 if args['content-range']:
                     # get file chunk contents
                     file_buffer = newFile.stream.read(1024)
-                    newFile.stream.seek()
+                    newFile.stream.seek(0)
 
                     # extract byte numbers from Content-Range header string
                     content_range = args['content-range']
@@ -196,7 +199,7 @@ class ExperimentFileListController(Resource):
                 else:
 
                     file_buffer = newFile.stream.read(1024)
-                    newFile.stream.seek()
+                    newFile.stream.seek(0)
 
                     # initialize file handle for magic file type detection
                     fh_magic = magic.Magic(magic_file=current_app.config.get('BIOINFO_MAGIC_FILE'))
