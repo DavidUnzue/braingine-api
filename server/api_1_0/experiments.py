@@ -2,14 +2,14 @@
 # -*- coding: utf-8 -*-
 
 import urllib, os, werkzeug, magic, json
-from flask import abort, make_response, current_app
+from flask import abort, make_response, current_app, request
 from flask.ext.restful import Resource, reqparse
-from flask.ext.httpauth import HTTPBasicAuth
+from auth import auth
 # Import db instance
 from server import db
 # Import models from models.py file
 # IMPORTANT!: this has to be done after the DB gets instantiated and in this case imported too
-from server.models import Experiment, ExperimentSchema, ExperimentFile, ExperimentFileSchema, ExperimentAnalysis, ExperimentAnalysisSchema, ExperimentAnalysisParameter, ExperimentAnalysisParameterSchema
+from server.models.experiment import Experiment, ExperimentSchema, ExperimentFile, ExperimentFileSchema, ExperimentAnalysis, ExperimentAnalysisSchema, ExperimentAnalysisParameter, ExperimentAnalysisParameterSchema
 from server.utils import sha1_string, connect_ssh, write_file, write_file_remote
 # http://stackoverflow.com/a/30399108
 from . import api, tasks
@@ -19,13 +19,15 @@ from server.tasks import execute_command
 from sqlalchemy import or_
 # webargs for request parsing instead of flask restful's reqparse
 from webargs import fields, validate
+from server.hooks.webargs_hook import JsonApiParser
 from webargs.flaskparser import parser as webargs_parser, use_args
 
-auth = HTTPBasicAuth()
 
 experiment_schema = ExperimentSchema()
 experiment_file_schema = ExperimentFileSchema()
 experiment_analysis_schema = ExperimentAnalysisSchema()
+
+json_api_parser = JsonApiParser()
 
 parser = reqparse.RequestParser()
 # The default argument type is a unicode string. This will be str in python3 and unicode in python2.
@@ -41,7 +43,7 @@ parser.add_argument('q', location=['args'])
 
 class ExperimentListController(Resource):
     decorators = [auth.login_required]
-    
+
     def get(self):
         parser.add_argument('page', type=int, default=1, location=['args'])
         parsed_args = parser.parse_args()
@@ -286,6 +288,22 @@ class ExperimentFileController(Resource):
         db.session.delete(experiment_file)
         db.session.commit()
         return {}, 204
+
+    @json_api_parser.use_args(experiment_file_schema)
+    def put(self, args, experiment_id, file_id):
+        # TODO change file sha value when changing the file's name
+        # args = json_api_parser.parse(experiment_file_schema, request)
+        # args, errors = experiment_file_schema.load(request.json)
+        experiment_file = ExperimentFile.query.filter_by(experiment_id=experiment_id, id=file_id).first()
+        if not experiment_file:
+            abort(404, "Experiment file {} doesn't exist".format(file_id))
+        for k, v in args.items():
+            if v is not None:
+                setattr(experiment_file, k, v)
+        db.session.add(experiment_file)
+        db.session.commit()
+        result = experiment_file_schema.dump(experiment_file).data
+        return result, 200
 
 
 class ExperimentAnalysisListController(Resource):

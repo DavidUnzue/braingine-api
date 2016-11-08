@@ -5,7 +5,7 @@ from flask import abort, current_app
 from flask.ext.restful import Resource, reqparse, fields
 
 from server import db
-from server.models import Pipeline, PipelineSchema
+from server.models.pipeline import Pipeline, PipelineSchema
 from . import api
 import json
 

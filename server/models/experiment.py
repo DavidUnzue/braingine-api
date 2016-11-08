@@ -1,31 +1,10 @@
 from flask import current_app, url_for, json
-from . import db
-from api_1_0 import api
+from server import db
+from server.api_1_0 import api
 import os
-from utils import silent_remove, sha1_string
-from marshmallow_jsonapi import Schema, fields
-
-
-# Define a base model for other models to inherit
-class Base(db.Model):
-    """
-    Base model with attributes common to every model. Other models will inherit from this one.
-    """
-
-    # tell SQLAlchemy not to create a table for a this model
-    __abstract__  = True
-
-    id            = db.Column(db.Integer, primary_key=True)
-    created_at  = db.Column(db.DateTime(timezone=True),  default=db.func.current_timestamp())
-    updated_at = db.Column(db.DateTime(timezone=True),  default=db.func.current_timestamp(),
-                                           onupdate=db.func.current_timestamp())
-
-
-# Marshmallow schema for base model
-class BaseSchema(Schema):
-    id = fields.Integer(dump_only=True)
-    created_at = fields.DateTime(dump_only=True)
-    updated_at = fields.DateTime(dump_only=True)
+from server.utils import silent_remove, sha1_string
+from .base import Base, BaseSchema
+from marshmallow_jsonapi import fields
 
 
 # Define Experiment model
@@ -149,14 +128,13 @@ class ExperimentFile(Base):
 
 # Marshmallow schema for experiment file
 class ExperimentFileSchema(BaseSchema):
-    type = fields.Str(dump_only=True)
     experiment_id = fields.Int(dump_only=True)
     # python integer type can store very large numbers, there is no other data type like bigint
     size_in_bytes = fields.Int(dump_only=True)
     name = fields.Str()
     path = fields.Str(dump_only=True)
     folder = fields.Str(dump_only=True)
-    parent = fields.Str()
+    parent = fields.Str(missing=None)
     sha = fields.Str()
     mime_type = fields.Str(dump_only=True)
     file_type = fields.Str()
@@ -270,29 +248,3 @@ class ExperimentAnalysisSchema(BaseSchema):
         strict = True
         self_url = '/api/experiments/{experiment_id}/analyses/{id}'
         self_url_kwargs = {'experiment_id': '<experiment_id>', 'id': '<id>'}
-
-
-class Pipeline(Base):
-
-    __tablename__ = 'pipelines'
-
-    script = db.Column(db.String(255), nullable=False, default='')
-    definition = db.Column(db.String(255), nullable=False, default='')
-
-    def __init__(self, script, definition):
-        self.script = script
-        self.definition = definition
-
-    def __repr__(self):
-        return '<Pipeline {}>'.format(self.id)
-
-
-class PipelineSchema(BaseSchema):
-    script = fields.Str()
-    definition = fields.Str()
-
-    class Meta:
-        type_ = 'pipelines'
-        strict = True
-        self_url = '/api/pipelines/{id}'
-        self_url_kwargs = {'id': '<id>'}
