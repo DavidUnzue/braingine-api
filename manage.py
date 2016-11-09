@@ -49,6 +49,13 @@ def celeryworker(hostname):
     with app.app_context():
         return celery_main(celery_args)
 
+@manager.command
+def deploy():
+    """Run deployment tasks."""
+    from flask.ext.migrate import upgrade
+    
+    # migrate database to latest revision
+    upgrade()
 
 if __name__ == '__main__':
     manager.run()

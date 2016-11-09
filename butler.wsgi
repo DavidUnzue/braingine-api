@@ -2,11 +2,11 @@
 import sys, os
 import logging
 
-activate_this = '/var/www/webapp/flask/bin/activate_this.py'
+activate_this = '/opt/butler/bin/activate_this.py'
 execfile(activate_this, dict(__file__=activate_this))
 
 logging.basicConfig(stream=sys.stderr)
-sys.path.insert(0,"/var/www/webapp/")
-os.chdir("/var/www/webapp")
+sys.path.insert(0,"/var/www/butler/")
+os.chdir("/var/www/butler")
 
 from server import app as application
