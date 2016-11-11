@@ -128,7 +128,8 @@ class ExperimentFileListController(Resource):
                filename.rsplit('.', 1)[1] in current_app.config.get('ALLOWED_EXTENSIONS')
 
     @use_args({
-        'content-range': fields.Str(load_from='Content-Range', location='headers', missing=None)
+        'content-range': fields.Str(load_from='Content-Range', location='headers', missing=None),
+        'content-length': fields.Int(load_from='Content-Length', location='headers', missing=0)
     })
     def post(self, args, experiment_id):
         parser.add_argument('files[]', action='append', type=werkzeug.datastructures.FileStorage, location=['files']) # TODO add custom marshmallow field
@@ -211,7 +212,8 @@ class ExperimentFileListController(Resource):
                     # write_file_remote(ssh, file_folder, file_name, newFile)
                     write_file(file_folder, file_name, newFile)
 
-                    file_size = len(file_buffer)
+                    # get file size from request's header content-length
+                    file_size = args['content-length']
 
                     experimentFile = ExperimentFile(experiment_id=experiment_id, size_in_bytes=file_size, name=file_name, path=file_path, folder=file_folder, mime_type=mimetype, file_type=file_type)
                     db.session.add(experimentFile)
