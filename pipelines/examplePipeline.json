@@ -9,7 +9,8 @@
       {
         "name": "input1",
         "label": "Input text",
-        "type": "text"
+        "type": "file",
+        "filetype": "bam"
       },
       {
         "name": "input2",
