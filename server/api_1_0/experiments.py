@@ -315,39 +315,35 @@ class ExperimentAnalysisListController(Resource):
         result = experiment_analysis_schema.dump(experiment_analyses, many=True).data
         return result, 200
 
-    pipeline_args = {
+    analysis_args = {
         'pipeline_id': fields.Str(),
         'command': fields.Str(),
-        'parameters': fields.Nested({
-            'inputs': fields.List(fields.Dict()),
-            'outputs': fields.List(fields.Dict())
-        })
+        'parameters': fields.List(fields.Dict())
     }
     # example object
     # {
     #     "pipeline_id": "examplePipeline",
-    #     "parameters": {
-    #     	"inputs": [
-    #     		{"input1": "'This is a test'"},
-    #           {"input2": "'This is another test'"}
-    #     	],
-    #     	"outputs": [
-    #           {"output": "testOutput.txt"}
-    #     	]
-    #     }
+    #     "parameters": [
+    #             {"input1": "'This is a test'"},
+    #             {"input2": "'This is another test'"}
+    #             {"output": "testOutput.txt"}
+    #     ]
     # }
-    @use_args(pipeline_args)
+    @use_args(analysis_args)
     def post(self, args, experiment_id):
         from string import Template
 
-        # merge input dictionaries (key-value pairs) into one single dictionary for inputs
-        input_params = {key: value for d in args['parameters']['inputs'] for key, value in d.items()}
-        # merge output dictionaries into one single dictionary for outputs
-        output_params = {key: value for d in args['parameters']['outputs'] for key, value in d.items()}
-        # merge both dictionaries, note that for duplicated keys, only the value of the second dict is stored, but parameters should be unique anyway
-        pipeline_parameters = dict()
-        pipeline_parameters.update(input_params)
-        pipeline_parameters.update(output_params)
+        # comment following lines out if parameters contained in inputs and outputs arrays
+        # # merge input dictionaries (key-value pairs) into one single dictionary for inputs
+        # input_params = {key: value for d in args['parameters']['inputs'] for key, value in d.items()}
+        # # merge output dictionaries into one single dictionary for outputs
+        # output_params = {key: value for d in args['parameters']['outputs'] for key, value in d.items()}
+        # # merge both dictionaries, note that for duplicated keys, only the value of the second dict is stored, but parameters should be unique anyway
+        # pipeline_parameters = dict()
+        # pipeline_parameters.update(input_params)
+        # pipeline_parameters.update(output_params)
+
+        pipeline_parameters = args['parameters']
 
         # get pipeline command
         with open('{}/{}.json'.format(current_app.config.get('PIPELINES_FOLDER'), args['pipeline_id'])) as pipeline_definition_file:

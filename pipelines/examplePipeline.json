@@ -4,39 +4,30 @@
   "name": "Example Pipeline",
   "description": "It prints a text into the output file.",
   "command": "sh ./examplePipeline.sh $input1 $input2 $output",
-  "parameters": {
-    "inputs": [
-      {
-        "name": "input1",
-        "label": "Input text",
-        "type": "file",
-        "filetype": "bam"
-      },
-      {
-        "name": "input2",
-        "label": "Another input text",
-        "type": "text"
-      }
-    ],
-    "outputs": [
-      {
-        "name": "output",
-        "label": "Output filename",
-        "type": "text"
-      }
-    ]
-  },
+  "parameters": [
+    {
+      "name": "input1",
+      "label": "Input text",
+      "type": "text"
+    },
+    {
+      "name": "input2",
+      "label": "Another input text",
+      "type": "text"
+    },
+    {
+      "name": "output",
+      "label": "Output filename",
+      "type": "text"
+    }
+  ],
   "example": {
     "pipeline_id": "examplePipeline",
     "command": "sh ./examplePipeline.sh $input1 $input2 $output",
-    "parameters": {
-    	"inputs": [
-    		{"input1": "'This is a test'"},
-          	{"input2": "'This is another test'"}
-    	],
-    	"outputs": [
-          {"output": "testOutput.txt"}
-    	]
-    }
+    "parameters": [
+  		{"input1": "'This is a test'"},
+    	{"input2": "'This is another test'"},
+      {"output": "testOutput.txt"}
+  	]
   }
 }

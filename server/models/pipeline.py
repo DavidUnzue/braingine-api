@@ -6,7 +6,7 @@ class PipelineSchema(Schema):
     name = fields.Str()
     description = fields.Str()
     command = fields.Str()
-    parameters = fields.Dict()
+    parameters = fields.List(fields.Dict())
 
     class Meta:
         type_ = 'pipelines'
