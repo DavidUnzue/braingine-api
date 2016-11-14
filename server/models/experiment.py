@@ -4,7 +4,7 @@ from server.api_1_0 import api
 import os
 from server.utils import silent_remove, sha1_string
 from .base import Base, BaseSchema
-from marshmallow_jsonapi import fields
+from marshmallow import fields
 
 
 # Define Experiment model
@@ -24,6 +24,11 @@ class Experiment(Base):
     # one-to-many relationship to ExperimentFile
     # one experiments can contain many files, one file belongs only to one experiment
     files = db.relationship('ExperimentFile', backref='experiments',
+                                lazy='select', cascade="all, delete-orphan")
+
+    # one-to-many relationship to ExperimentFile
+    # one experiments can contain many files, one file belongs only to one experiment
+    analyses = db.relationship('ExperimentAnalysis', backref='experiments',
                                 lazy='select', cascade="all, delete-orphan")
 
     # constructor
@@ -49,38 +54,8 @@ class ExperimentSchema(BaseSchema):
     species = fields.Str()
     tissue = fields.Str()
     information = fields.Str()
-
-    files = fields.Relationship(
-        related_url='/api/experiments/{experiment_id}/files/',
-        related_url_kwargs={'experiment_id': '<id>'},
-        # Include resource linkage
-        many=True, include_resource_linkage=True,
-        type_='files'
-    )
-
-    analyses = fields.Relationship(
-        related_url='/api/experiments/{experiment_id}/analyses/',
-        related_url_kwargs={'experiment_id': '<id>'},
-        # Include resource linkage
-        many=True, include_resource_linkage=True,
-        type_='analyses'
-    )
-
-    # extend get_top_level_links method from parent class to output further link objects (pagination, etc...)
-    def get_top_level_links(self, data, many):
-        top_level_links = super(ExperimentSchema, self).get_top_level_links(data, many) # call parent class' method
-        if many:
-            next_link = url_for('api.experimentlistcontroller', page=2, _external=True) #TODO get page number from controller
-            prev_link = url_for('api.experimentlistcontroller', page=1, _external=True)
-            top_level_links.update({'next': next_link, 'prev': prev_link})
-        return top_level_links
-
-    class Meta:
-        type_ = 'experiments'
-        strict = True
-        self_url = '/api/experiments/{id}'
-        self_url_kwargs = {'id': '<id>'}
-        self_url_many = '/api/experiments/'
+    files = fields.Nested('ExperimentFileSchema', many=True)
+    analyses = fields.Nested('ExperimentAnalysisSchema', many=True)
 
 
 # Define Experiment file model. File can actually be a file or a directory
@@ -140,12 +115,6 @@ class ExperimentFileSchema(BaseSchema):
     file_type = fields.Str()
     group = fields.Str()
 
-    class Meta:
-        type_ = 'files'
-        strict = True
-        self_url = '/api/experiments/{experiment_id}/files/{id}'
-        self_url_kwargs = {'experiment_id': '<experiment_id>', 'id': '<id>'}
-
 
 @db.event.listens_for(ExperimentFile, 'after_delete')
 def remove_file_after_delete(mapper, connection, target):
@@ -203,10 +172,6 @@ class ExperimentAnalysisParameterSchema(BaseSchema):
     parameter_name = fields.Str()
     parameter_value = fields.Str()
 
-    class Meta:
-        type_ = 'analysis_parameters'
-        strict = True
-
 
 # Experiment contains analyses with programs/parameters/input&output workflows
 class ExperimentAnalysis(Base):
@@ -235,16 +200,4 @@ class ExperimentAnalysisSchema(BaseSchema):
     experiment_id = fields.Int(dump_only=True)
     pipeline_id = fields.Str() # pipeline id is a unique String, usually the pipeline file name wihtout extension
 
-    parameters = fields.Relationship(
-        related_url='/api/experiments/{experiment_id}/analyses/{id}',
-        related_url_kwargs={'experiment_id': '<id>', 'id': '<id>'},
-        # Include resource linkage
-        many=True, include_resource_linkage=True,
-        type_='analyses'
-    )
-
-    class Meta:
-        type_ = 'analyses'
-        strict = True
-        self_url = '/api/experiments/{experiment_id}/analyses/{id}'
-        self_url_kwargs = {'experiment_id': '<experiment_id>', 'id': '<id>'}
+    parameters = fields.Nested('ExperimentAnalysisParameterSchema', many=True)

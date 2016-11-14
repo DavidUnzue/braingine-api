@@ -74,7 +74,8 @@ def connect_ssh(server, user, password):
         # connection.login(server, user, password)
     # except pxssh.ExceptionPxssh as e:
     except paramiko.ssh_exception.AuthenticationException as e:
-        abort(404, "Unable to connect to server through SSH.")
+        print e
+        return
     return ssh
 
 

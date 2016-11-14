@@ -1,4 +1,4 @@
-from marshmallow_jsonapi import Schema, fields
+from marshmallow import Schema, fields
 
 
 class PipelineSchema(Schema):
@@ -7,9 +7,3 @@ class PipelineSchema(Schema):
     description = fields.Str()
     command = fields.Str()
     parameters = fields.List(fields.Dict())
-
-    class Meta:
-        type_ = 'pipelines'
-        strict = True
-        self_url = '/api/pipelines/{id}'
-        self_url_kwargs = {'id': '<id>'}
