@@ -1,5 +1,5 @@
 from server import db
-from marshmallow_jsonapi import Schema, fields
+from marshmallow import Schema, fields
 
 # Define a base model for other models to inherit
 class Base(db.Model):

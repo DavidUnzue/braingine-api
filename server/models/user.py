@@ -1,5 +1,5 @@
 from .base import Base, BaseSchema
-from marshmallow_jsonapi import fields
+from marshmallow import fields
 from passlib.apps import custom_app_context as pwd_context
 
 
@@ -22,3 +22,8 @@ class User(Base):
 
     def verify_password(self, password):
         return pwd_context.verify(password, self.password_hash)
+
+
+class UserSchema(BaseSchema):
+    username = fields.Str()
+    password_hash = fields.Str(dump_only=True)
