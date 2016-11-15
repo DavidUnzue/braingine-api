@@ -19,7 +19,6 @@ from server.tasks import execute_command
 from sqlalchemy import or_
 # webargs for request parsing instead of flask restful's reqparse
 from webargs import fields, validate
-from server.hooks.webargs_hook import JsonApiParser
 from webargs.flaskparser import parser as webargs_parser, use_args
 
 
@@ -27,7 +26,6 @@ experiment_schema = ExperimentSchema()
 experiment_file_schema = ExperimentFileSchema()
 experiment_analysis_schema = ExperimentAnalysisSchema()
 
-json_api_parser = JsonApiParser()
 
 parser = reqparse.RequestParser()
 # The default argument type is a unicode string. This will be str in python3 and unicode in python2.
@@ -291,10 +289,10 @@ class ExperimentFileController(Resource):
         db.session.commit()
         return {}, 204
 
-    @json_api_parser.use_args(experiment_file_schema)
+    @use_args(experiment_file_schema)
     def put(self, args, experiment_id, file_id):
         # TODO change file sha value when changing the file's name
-        # args = json_api_parser.parse(experiment_file_schema, request)
+        # args = webargs_parser.parse(experiment_file_schema, request)
         # args, errors = experiment_file_schema.load(request.json)
         experiment_file = ExperimentFile.query.filter_by(experiment_id=experiment_id, id=file_id).first()
         if not experiment_file:
@@ -343,7 +341,8 @@ class ExperimentAnalysisListController(Resource):
         # pipeline_parameters.update(input_params)
         # pipeline_parameters.update(output_params)
 
-        pipeline_parameters = args['parameters']
+        # merge parameter dictionaries (key-value pairs) into one single dictionary, in order to work on Template.substitute
+        pipeline_parameters = {key: value for d in args['parameters'] for key, value in d.items()}
 
         # get pipeline command
         with open('{}/{}.json'.format(current_app.config.get('PIPELINES_FOLDER'), args['pipeline_id'])) as pipeline_definition_file:
