@@ -1,7 +1,6 @@
 import os, errno, hashlib, shutil
 # ssh package
 import paramiko
-# from pexpect import pxssh
 
 
 # def create_dir(directory):
@@ -68,14 +67,14 @@ def connect_ssh(server, user, password):
     """
     try:
         ssh = paramiko.SSHClient()
+        # The following line is required if you want the script to be able to access a server that's not yet in the known_hosts file
         ssh.set_missing_host_key_policy(paramiko.AutoAddPolicy())
+        print server
+        print user
+        print password
         ssh.connect(server, username=user, password=password)
-        # connection = pxssh.pxssh()
-        # connection.login(server, user, password)
-    # except pxssh.ExceptionPxssh as e:
     except paramiko.ssh_exception.AuthenticationException as e:
         print e
-        return
     return ssh
 
 
