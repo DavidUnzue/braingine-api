@@ -2,32 +2,20 @@
   "id": "examplePipeline",
   "filename": "examplePipeline.sh",
   "name": "Example Pipeline",
-  "description": "It prints a text into the output file.",
-  "command": "sh ./examplePipeline.sh $input1 $input2 $output",
+  "description": "This pipeline does nothing.",
+  "command": "sh ./examplePipeline.sh $input1 $input2 outputFile.txt",
   "parameters": [
     {
       "name": "input1",
-      "label": "Input text",
-      "type": "text"
+      "label": "Input file",
+      "help": "Long description of the purpouse of this field",
+      "type": "file",
+      "filetype": "bam"
     },
     {
       "name": "input2",
-      "label": "Another input text",
-      "type": "text"
-    },
-    {
-      "name": "output",
-      "label": "Output filename",
+      "label": "Some text input",
       "type": "text"
     }
-  ],
-  "example": {
-    "pipeline_id": "examplePipeline",
-    "command": "sh ./examplePipeline.sh $input1 $input2 $output",
-    "parameters": [
-  		{"input1": "'This is a test'"},
-    	{"input2": "'This is another test'"},
-      {"output": "testOutput.txt"}
-  	]
-  }
+  ]
 }
