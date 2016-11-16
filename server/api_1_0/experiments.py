@@ -148,6 +148,8 @@ class ExperimentFileListController(Resource):
         # setup uploads folder for experiment files
         file_folder = os.path.join(current_app.config.get('UPLOAD_FOLDER'), sha1_string(experiment.name))
 
+        experiment_folder = sha1_string(experiment.name)
+
         # define file path
         file_path = os.path.join(file_folder, file_name)
 
@@ -187,7 +189,7 @@ class ExperimentFileListController(Resource):
                         fh_magic = magic.Magic(magic_file=current_app.config.get('BIOINFO_MAGIC_FILE'))
                         # get bioinformatic file type using magic on the first chunk of the file
                         file_type = fh_magic.from_buffer(file_buffer)
-                        experimentFile = ExperimentFile(experiment_id=experiment_id, size_in_bytes=total_bytes, name=file_name, path=file_path, folder=file_folder, mime_type=mimetype, file_type=file_type)
+                        experimentFile = ExperimentFile(experiment_id=experiment_id, size_in_bytes=total_bytes, name=file_name, path=file_path, folder=experiment_folder, mime_type=mimetype, file_type=file_type)
                         db.session.add(experimentFile)
                         db.session.commit()
                         result = experiment_file_schema.dump(experimentFile, many=False).data
@@ -213,7 +215,7 @@ class ExperimentFileListController(Resource):
                     # get file size from request's header content-length
                     file_size = args['content-length']
 
-                    experimentFile = ExperimentFile(experiment_id=experiment_id, size_in_bytes=file_size, name=file_name, path=file_path, folder=file_folder, mime_type=mimetype, file_type=file_type)
+                    experimentFile = ExperimentFile(experiment_id=experiment_id, size_in_bytes=file_size, name=file_name, path=file_path, folder=experiment_folder, mime_type=mimetype, file_type=file_type)
                     db.session.add(experimentFile)
                     db.session.commit()
                     result = experiment_file_schema.dump(experimentFile, many=False).data

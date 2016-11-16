@@ -2,19 +2,19 @@
   "id": "examplePipeline",
   "filename": "examplePipeline.sh",
   "name": "Example Pipeline",
-  "description": "This pipeline does nothing.",
-  "command": "sh ./examplePipeline.sh $input1 $input2 outputFile.txt",
+  "description": "Writes the head of the input file into a new file.",
+  "command": "sh ./examplePipeline.sh $inputFile $headSize outputFile.txt",
   "parameters": [
     {
-      "name": "input1",
+      "name": "inputFile",
       "label": "Input file",
-      "help": "Long description of the purpouse of this field",
+      "help": "The head of this file will be written to a new file",
       "type": "file",
       "filetype": "bam"
     },
     {
-      "name": "input2",
-      "label": "Some text input",
+      "name": "headSize",
+      "label": "Size (in rows) of the file's head to be written",
       "type": "text"
     }
   ]

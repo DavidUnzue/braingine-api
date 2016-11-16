@@ -11,8 +11,9 @@ class Config(object):
     SQLALCHEMY_TRACK_MODIFICATIONS = True
     # max. file size for uploaded file chunks per request
     #MAX_CONTENT_LENGTH = 8 * 1024 * 1024 # 8 MB
-    # This is the path to the directory where files will be uploaded to
-    # UPLOAD_FOLDER = '/storage/scic/Data/External/butler_uploads'
+    # This is the path to the directory in the storage server where files will be uploaded to
+    UPLOAD_DESTINATION = '/storage/scic/Data/External/butler_uploads'
+    # this is the path the webapp uses internally to move the files to. this is a symlink
     UPLOAD_FOLDER = '/Users/davidunzue/Projects/butler-api/uploads'
     PIPELINES_FOLDER = './pipelines' # without trailing slash
     CELERY_RESULT_BACKEND = 'redis://'
