@@ -76,6 +76,9 @@ Temporary Items
 # Sass
 .sass-cache
 
+# Redis
+dump.rdb
+
 # Project specific files
 uploads
 .env
