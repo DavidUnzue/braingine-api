@@ -10,7 +10,7 @@ from server import db
 # Import models from models.py file
 # IMPORTANT!: this has to be done after the DB gets instantiated and in this case imported too
 from server.models.experiment import Experiment, ExperimentSchema, ExperimentFile, ExperimentFileSchema, ExperimentAnalysis, ExperimentAnalysisSchema, ExperimentAnalysisParameter, ExperimentAnalysisParameterSchema
-from server.utils import sha1_string, connect_ssh, write_file, write_file_remote
+from server.utils import sha1_string, connect_ssh, write_file, create_folder
 # http://stackoverflow.com/a/30399108
 from . import api, tasks
 # celery task
@@ -78,6 +78,11 @@ class ExperimentListController(Resource):
         species = parsed_args['species']
         tissue = parsed_args['tissue']
         information = parsed_args['information']
+
+        # setup  folder for project data
+        data_folder = os.path.join(current_app.config.get('SYMLINK_TO_DATA_STORAGE'), sha1_string(name))
+        create_folder(dest_folder)
+
         experiment = Experiment(exp_type=exp_type, name=name, date=date, experimenter=experimenter, species=species, tissue=tissue, information=information)
         db.session.add(experiment)
         db.session.commit()
@@ -145,13 +150,13 @@ class ExperimentFileListController(Resource):
         # get experiment
         experiment = Experiment.query.get(experiment_id)
 
-        # setup uploads folder for experiment files
-        file_folder = os.path.join(current_app.config.get('UPLOAD_FOLDER'), sha1_string(experiment.name))
-
         experiment_folder = sha1_string(experiment.name)
 
-        # define file path
-        file_path = os.path.join(file_folder, file_name)
+        # destination where python should write the file to internally, using the symlink to the mounted storage server
+        write_file_to = os.path.join(current_app.config.get('SYMLINK_TO_DATA_STORAGE'), experiment_folder)
+
+        # path fo the file in the storage server
+        file_path = os.path.join(current_app.config.get('DATA_STORAGE'), experiment_folder, file_name)
 
         # upload file
         if newFile:
@@ -176,7 +181,7 @@ class ExperimentFileListController(Resource):
                     total_bytes = int(range_str.split('/')[1])
 
                     # append chunk to the file on server, or create new
-                    write_file(file_folder, file_name, newFile)
+                    write_file(write_file_to, file_name, newFile)
 
                     # get bioinformatic file type using magic on the first chunk of the file
                     # if start_bytes == 0:
@@ -209,8 +214,7 @@ class ExperimentFileListController(Resource):
                     # get bioinformatic file type using magic on the first chunk of the file
                     file_type = fh_magic.from_buffer(file_buffer)
 
-                    # write_file_remote(ssh, file_folder, file_name, newFile)
-                    write_file(file_folder, file_name, newFile)
+                    write_file(write_file_to, file_name, newFile)
 
                     # get file size from request's header content-length
                     file_size = args['content-length']
@@ -249,20 +253,9 @@ class ExperimentFileController(Resource):
     def download_file(self, experiment_file, attachment=False):
         """Makes a Flask response with the corresponding content-type encoded body"""
         from flask import send_file
+        file_path = os.path.join(current_app.config.get('SYMLINK_TO_DATA_STORAGE'), sha1_string(experiment.name))
         return send_file(experiment_file.path, mimetype=experiment_file.mime_type, as_attachment=attachment)
 
-    # when request contains header: "Accept: text/tsv"
-    # def output_tsv(self, experiment_file, code):
-    #     """Makes a Flask response with a tab-separated-values' encoded body"""
-    #     from flask import send_file
-    #     return send_file(experiment_file.path, mimetype='text/tsv', as_attachment=False)
-        # with open(experiment_file.path, 'r') as data_file:
-        #     data = data_file.read()
-        # resp = make_response(data, code)
-        # # resp.headers.extend(headers or {})
-        # resp.headers['content-type'] = 'text/tsv'
-        # resp.headers['Content-Disposition'] = 'attachment'
-        # return resp
 
     @use_args({
         'accept': fields.Str(load_from='Accept', location='headers'), # default is */* for accepting everything

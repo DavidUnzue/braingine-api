@@ -1,4 +1,5 @@
 import os
+import logging
 
 from celery import Celery
 from flask import Flask
@@ -18,6 +19,13 @@ def create_app(config_name, register_blueprints=True):
 
     config[config_name].init_app(app)
     db.init_app(app)
+
+    # Configure logging
+    handler = logging.FileHandler(app.config['LOGGING_LOCATION'])
+    handler.setLevel(app.config['LOGGING_LEVEL'])
+    formatter = logging.Formatter(app.config['LOGGING_FORMAT'])
+    handler.setFormatter(formatter)
+    app.logger.addHandler(handler)
 
     if register_blueprints:
         # Import blueprints

@@ -1,4 +1,5 @@
 import os
+import logging
 basedir = os.path.abspath(os.path.dirname(__file__))
 
 class Config(object):
@@ -6,20 +7,24 @@ class Config(object):
     TESTING = False
     CSRF_ENABLED = True
     SECRET_KEY = 'this-really-needs-to-be-changed'
+    LOGGING_FORMAT = '%(asctime)s - %(name)s - %(levelname)s - %(message)s'
+    LOGGING_LOCATION = 'butler-api.log'
+    LOGGING_LEVEL = logging.DEBUG
     # disable warning 'SQLALCHEMY_TRACK_MODIFICATIONS adds significant overhead and will be disabled by default in the future.  Set it to True to suppress this warning'
     # this is needed in order to detect delete cascades and execute some code when that happens, such as deleting files when experiment gets deleted
     SQLALCHEMY_TRACK_MODIFICATIONS = True
     # max. file size for uploaded file chunks per request
     #MAX_CONTENT_LENGTH = 8 * 1024 * 1024 # 8 MB
+    SYMLINK_TO_DATA_STORAGE = './data/projects'
     # This is the path to the directory in the storage server where files will be uploaded to
-    UPLOAD_DESTINATION = '/storage/scic/Data/External/butler_uploads'
+    DATA_STORAGE = '/storage/scic/Data/External/butler/projects'
     # this is the path the webapp uses internally to move the files to. this is a symlink
-    UPLOAD_FOLDER = '/Users/davidunzue/Projects/butler-api/uploads'
-    PIPELINES_FOLDER = './pipelines' # without trailing slash
+    UPLOAD_FOLDER = '/Users/davidunzue/Projects/butler-api/data/projects'
+    PIPELINES_FOLDER = './data/pipelines' # without trailing slash
     CELERY_RESULT_BACKEND = 'redis://'
     CELERY_BROKER_URL = 'redis://localhost:6379/0'
     # These are the extension that we are accepting to be uploaded
-    ALLOWED_EXTENSIONS = set(['txt','bam','bed','fasta','fa', 'fastq', 'fq'])
+    ALLOWED_EXTENSIONS = set(['txt','bam','bed','fasta','fa', 'fastq', 'fq', 'bz2'])
     BIOINFO_MAGIC_FILE = './resources/magic/bioinformatics'
 
     @staticmethod

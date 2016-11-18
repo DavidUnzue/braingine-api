@@ -78,17 +78,27 @@ def connect_ssh(server, user, password):
     return ssh
 
 
+def create_folder(path):
+    """
+    Create a folder for the given path.
+
+    We try to create the directory, but if it already exists we ignore the error. On the other hand, any other error gets reported.
+    """
+    try:
+        os.makedirs(path)
+    except OSError:
+        if not os.path.isdir(path):
+            raise
+
+
 def write_file(dest_folder, filename, file_object):
     """
     Write a file or file chunk to disk locally
     """
-    try:
-        os.makedirs(dest_folder)
-    except OSError:
-        if not os.path.isdir(dest_folder):
-            raise
+    create_folder(dest_folder)
+    dest_file = os.path.join(dest_folder, filename)
 
-    with open(dest_folder + '/' + filename, "wb") as f:
+    with open(dest_file, "wb") as f:
         chunk = file_object.stream.read()
         f.write(chunk)
 
@@ -97,13 +107,10 @@ def write_file_in_chunks(dest_folder, filename, file_object):
     """
     Write a file or file chunk to disk locally
     """
-    try:
-        os.makedirs(dest_folder)
-    except OSError:
-        if not os.path.isdir(dest_folder):
-            raise
+    create_folder(dest_folder)
+    dest_file = os.path.join(dest_folder, filename)
 
-    with open(dest_folder + '/' + filename, "wb") as f:
+    with open(dest_file, "wb") as f:
         chunk_size = 8 * 1024 * 1024 # 8MB
         while True:
             chunk = file_object.stream.read(chunk_size)
@@ -126,7 +133,9 @@ def write_file_remote(ssh, remote_folder, filename, data):
     # append data chunk to file
     # with sftp.open(remote_folder + '/' + filename, 'a') as f:
     #     f.write(data)
-    with sftp.open(remote_folder + '/' + filename, "wb") as f:
+    dest_file = os.path.join(remote_folder, filename)
+
+    with sftp.open(dest_file, "wb") as f:
         chunk_size = 8 * 1024 * 1024 # 8MB
         while True:
             chunk = data.stream.read()
