@@ -20,12 +20,16 @@ class Config(object):
     DATA_STORAGE = '/storage/scic/Data/External/butler/projects'
     # this is the path the webapp uses internally to move the files to. this is a symlink
     UPLOAD_FOLDER = '/Users/davidunzue/Projects/butler-api/data/projects'
-    PIPELINES_FOLDER = './data/pipelines' # without trailing slash
-    CELERY_RESULT_BACKEND = 'redis://'
-    CELERY_BROKER_URL = 'redis://localhost:6379/0'
     # These are the extension that we are accepting to be uploaded
     ALLOWED_EXTENSIONS = set(['txt','bam','bed','fasta','fa', 'fastq', 'fq', 'bz2'])
     BIOINFO_MAGIC_FILE = './resources/magic/bioinformatics'
+    # pipelines location
+    PIPELINES_STORAGE = '/storage/scic/Data/External/butler/pipelines'
+    PIPELINES_FOLDER = './data/pipelines' # without trailing slash
+    # celery configuration
+    CELERY_RESULT_BACKEND = 'redis://'
+    CELERY_BROKER_URL = 'redis://localhost:6379/0'
+    CELERY_ACCEPT_CONTENT = ['pickle', 'json', 'msgpack', 'yaml']
 
     @staticmethod
     def init_app(app):

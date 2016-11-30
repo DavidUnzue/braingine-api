@@ -11,5 +11,5 @@ from . import api
 class TaskStatusController(Resource):
 
     def get(self, task_id):
-        result  = celery.AsyncResult(task_id)
-        return result.state
+        task  = celery.AsyncResult(task_id)
+        return {'task_id': task_id, 'state': task.state}, 200

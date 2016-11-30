@@ -20,6 +20,7 @@ class Experiment(Base):
     species = db.Column(db.String(255))
     tissue = db.Column(db.String(255))
     information = db.Column(db.Text)
+    sha = db.Column(db.String(40), nullable=True, default='')
 
     # one-to-many relationship to ExperimentFile
     # one experiments can contain many files, one file belongs only to one experiment
@@ -54,8 +55,29 @@ class ExperimentSchema(BaseSchema):
     species = fields.Str()
     tissue = fields.Str()
     information = fields.Str()
+    sha = fields.Str()
     files = fields.Nested('ExperimentFileSchema', many=True)
     analyses = fields.Nested('ExperimentAnalysisSchema', many=True)
+
+    class Meta:
+        strict = True
+
+
+@db.event.listens_for(Experiment, 'before_insert')
+def hash_before_insert(mapper, connection, target):
+    """
+    Create a hash string out of the filename for use as file unique identifier
+    """
+    experiment_name_hash = sha1_string(target.name)
+    target.sha = experiment_name_hash
+
+@db.event.listens_for(Experiment.name, 'set')
+def hash_after_update(target, value, oldvalue, initiator):
+    """
+    Update the hash string after a filename gets updated
+    """
+    experiment_name_hash = sha1_string(value)
+    target.sha = experiment_name_hash
 
 
 # Define Experiment file model. File can actually be a file or a directory
@@ -115,6 +137,9 @@ class ExperimentFileSchema(BaseSchema):
     file_type = fields.Str()
     group = fields.Str()
 
+    class Meta:
+        strict = True
+
 
 @db.event.listens_for(ExperimentFile, 'after_delete')
 def remove_file_after_delete(mapper, connection, target):
@@ -129,7 +154,7 @@ def remove_directory_after_delete(mapper, connection, target):
     """
     Remove experiment files directory from filesystem after experiment row gets deleted in database
     """
-    files_folder = os.path.join(current_app.config.get('UPLOAD_FOLDER'), sha1_string(target.name))
+    files_folder = os.path.join(current_app.config.get('UPLOAD_FOLDER'), target.sha)
     silent_remove(files_folder)
 
 
@@ -155,13 +180,13 @@ class ExperimentAnalysisParameter(Base):
     __tablename__ = 'experiment_analysis_parameters'
 
     experiment_analysis_id = db.Column(db.Integer(), db.ForeignKey("experiment_analyses.id", ondelete="CASCADE"))
-    parameter_name = db.Column(db.String(255), nullable=False, default='')
-    parameter_value = db.Column(db.String(255), nullable=False, default='')
+    name = db.Column(db.String(255), nullable=False, default='')
+    value = db.Column(db.String(255), nullable=False, default='')
 
-    def __init__(self, experiment_analysis_id, parameter_name, parameter_value):
+    def __init__(self, experiment_analysis_id, name, value):
         self.experiment_analysis_id = experiment_analysis_id
-        self.parameter_name = parameter_name
-        self.parameter_value = parameter_value
+        self.name = name
+        self.value = value
 
     def __repr__(self):
         return '<Experiment analysis parameter {}>'.format(self.id)
@@ -169,8 +194,11 @@ class ExperimentAnalysisParameter(Base):
 
 class ExperimentAnalysisParameterSchema(BaseSchema):
     experiment_analysis_id = fields.Int(dump_only=True)
-    parameter_name = fields.Str()
-    parameter_value = fields.Str()
+    name = fields.Str()
+    value = fields.Str()
+
+    class Meta:
+        strict = True
 
 
 # Experiment contains analyses with programs/parameters/input&output workflows
@@ -181,8 +209,7 @@ class ExperimentAnalysis(Base):
     # id of experiment this analysis belongs to
     experiment_id = db.Column(db.Integer(), db.ForeignKey("experiments.id", ondelete="CASCADE"))
     pipeline_id = db.Column(db.String(255), nullable=False, default='')
-    # inputs = db.Column(db.String(255), nullable=False, default='')
-    # outputs = db.Column(db.String(255), nullable=False, default='')
+    state = db.Column(db.String(15), nullable=False, default='PENDING')
 
     # one-to-many relationship to experiment analysis parameters
     # An experiment analysis contains one or more parameters
@@ -199,5 +226,9 @@ class ExperimentAnalysis(Base):
 class ExperimentAnalysisSchema(BaseSchema):
     experiment_id = fields.Int(dump_only=True)
     pipeline_id = fields.Str() # pipeline id is a unique String, usually the pipeline file name wihtout extension
-
+    state = fields.Str()
+    # parameters = fields.List(fields.Nested('ExperimentAnalysisParameterSchema'))
     parameters = fields.Nested('ExperimentAnalysisParameterSchema', many=True)
+
+    class Meta:
+        strict = True
