@@ -7,7 +7,7 @@ if os.environ.get('FLASK_COVERAGE'):
     COV = coverage.coverage(branch=True, include='server/*')
     COV.start()
 
-from flask.ext.script import Manager
+from flask.ext.script import Manager, Server
 from flask.ext.migrate import Migrate, MigrateCommand
 
 from server import create_app, db
@@ -20,6 +20,8 @@ migrate = Migrate(app, db)
 manager = Manager(app)
 
 manager.add_command('db', MigrateCommand)
+# make the development server capable of handling concurrent requests with threaded=True
+manager.add_command('runserver', Server(threaded=True))
 
 @manager.command
 def test(coverage=False):
@@ -53,7 +55,7 @@ def celeryworker(hostname):
 def deploy():
     """Run deployment tasks."""
     from flask.ext.migrate import upgrade
-    
+
     # migrate database to latest revision
     upgrade()
 

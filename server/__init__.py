@@ -39,6 +39,9 @@ def create_app(config_name, register_blueprints=True):
 
 
 def create_celery_app(app=None):
+    """
+    Create celery instance with app context bound to it, so we can use things like DB within a celery task.
+    """
     app = app or create_app(os.getenv('APP_SETTINGS') or 'default', register_blueprints=False)
     celery = Celery(__name__, backend=app.config['CELERY_RESULT_BACKEND'], broker=app.config['CELERY_BROKER_URL'])
     celery.conf.update(app.config)
@@ -53,5 +56,3 @@ def create_celery_app(app=None):
 
     celery.Task = ContextTask
     return celery
-# import models so that Alembic knows about them when creating DB migrations
-#from .models import *

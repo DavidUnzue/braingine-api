@@ -10,11 +10,11 @@ from server import db
 # Import models from models.py file
 # IMPORTANT!: this has to be done after the DB gets instantiated and in this case imported too
 from server.models.experiment import Experiment, ExperimentSchema, ExperimentFile, ExperimentFileSchema, ExperimentAnalysis, ExperimentAnalysisSchema, ExperimentAnalysisParameter, ExperimentAnalysisParameterSchema
-from server.utils import sha1_string, connect_ssh, write_file, create_folder
+from server.utils import sha1_string, connect_ssh, write_file, write_file_in_chunks, create_folder
 # http://stackoverflow.com/a/30399108
 from . import api, tasks
 # celery task
-from server.tasks import execute_command
+from server.tasks import run_analysis
 # allow use of or syntax for sql queries
 from sqlalchemy import or_
 # webargs for request parsing instead of flask restful's reqparse
@@ -81,7 +81,7 @@ class ExperimentListController(Resource):
 
         # setup  folder for project data
         data_folder = os.path.join(current_app.config.get('SYMLINK_TO_DATA_STORAGE'), sha1_string(name))
-        create_folder(dest_folder)
+        create_folder(data_folder)
 
         experiment = Experiment(exp_type=exp_type, name=name, date=date, experimenter=experimenter, species=species, tissue=tissue, information=information)
         db.session.add(experiment)
@@ -308,24 +308,25 @@ class ExperimentAnalysisListController(Resource):
         result = experiment_analysis_schema.dump(experiment_analyses, many=True).data
         return result, 200
 
-    analysis_args = {
-        'pipeline_id': fields.Str(),
-        'command': fields.Str(),
-        'parameters': fields.List(fields.Dict())
-    }
     # example object
     # {
     #     "pipeline_id": "examplePipeline",
     #     "parameters": [
-    #             {"input1": "'This is a test'"},
-    #             {"input2": "'This is another test'"}
-    #             {"output": "testOutput.txt"}
+    #         {
+    #             "name": "input1",
+    #             "value": "'This is a test'"
+    #         },
+    #         {
+    #             "name": "input2",
+    #             "value": "'This is another test'"
+    #         }
     #     ]
     # }
-    @use_args(analysis_args)
+    @use_args(experiment_analysis_schema)
     def post(self, args, experiment_id):
         from string import Template
 
+        experiment = Experiment.query.get(experiment_id)
         # comment following lines out if parameters contained in inputs and outputs arrays
         # # merge input dictionaries (key-value pairs) into one single dictionary for inputs
         # input_params = {key: value for d in args['parameters']['inputs'] for key, value in d.items()}
@@ -337,20 +338,25 @@ class ExperimentAnalysisListController(Resource):
         # pipeline_parameters.update(output_params)
 
         # merge parameter dictionaries (key-value pairs) into one single dictionary, in order to work on Template.substitute
-        pipeline_parameters = {key: value for d in args['parameters'] for key, value in d.items()}
-
+        pipeline_parameters = {d['name']: d['value'] for d in args['parameters']}
         # get pipeline command
         with open('{}/{}.json'.format(current_app.config.get('PIPELINES_FOLDER'), args['pipeline_id'])) as pipeline_definition_file:
             pipeline_definition = json.load(pipeline_definition_file)
+            pipeline_filename = pipeline_definition['filename']
+            pipeline_executor = pipeline_definition['executor']
             pipeline_command = pipeline_definition['command']
 
+        experiment_folder = os.path.join(current_app.config.get('DATA_STORAGE'), experiment.sha)
         # write params into command template
         pipeline_command = Template(pipeline_command)
-        final_pipeline_command = pipeline_command.substitute(pipeline_parameters)
+        pipeline_command_parameters = pipeline_command.substitute(pipeline_parameters, OUTPUT_FOLDER=experiment_folder)
 
-        # send task to celery and store it in a variable for returning task id in location header
-        task = execute_command.delay(final_pipeline_command)
+        pipeline_file_path = os.path.join(current_app.config.get('PIPELINES_STORAGE'), pipeline_filename)
+        final_pipeline_command = '{} {} {}'.format(pipeline_executor, pipeline_file_path, pipeline_command_parameters)
 
+        # remote command should first change directory to experiment folder, then execute the pipeline command
+        remote_command = 'cd {}; {}'.format(experiment_folder, final_pipeline_command)
+        print remote_command
         # add DB entry for analysis
         experiment_analysis = ExperimentAnalysis(experiment_id=experiment_id, pipeline_id=args['pipeline_id'])
         db.session.add(experiment_analysis)
@@ -358,9 +364,13 @@ class ExperimentAnalysisListController(Resource):
 
         # add DB entries for parameters for the analysis created before
         for name, value in pipeline_parameters.iteritems():
-            analysis_parameters = ExperimentAnalysisParameter(experiment_analysis_id=experiment_analysis.id, parameter_name=name, parameter_value=value)
+            analysis_parameters = ExperimentAnalysisParameter(experiment_analysis_id=experiment_analysis.id, name=name, value=value)
             db.session.add(analysis_parameters)
             db.session.commit()
+
+        # analysis_url = api.url_for(ExperimentAnalysisController, experiment_id=experiment_id, analysis_id=experiment_analysis.id)
+        # send task to celery and store it in a variable for returning task id in location header
+        task = run_analysis.delay(remote_command, experiment_analysis.id)
 
         result = experiment_analysis_schema.dump(experiment_analysis).data
 
@@ -381,3 +391,16 @@ class ExperimentAnalysisController(Resource):
         db.session.delete(experiment_analysis)
         db.session.commit()
         return {}, 204
+
+    @use_args(experiment_analysis_schema)
+    def put(self, args, experiment_id, analysis_id):
+        experiment_analysis = ExperimentAnalysis.query.filter_by(experiment_id=experiment_id, id=analysis_id).first()
+        if not experiment_analysis:
+            abort(404, "Experiment analysis {} doesn't exist".format(analysis_id))
+        for k, v in args.items():
+            if v is not None:
+                setattr(experiment_analysis, k, v)
+        db.session.add(experiment_analysis)
+        db.session.commit()
+        result = experiment_analysis_schema.dump(experiment_analysis).data
+        return result, 200
