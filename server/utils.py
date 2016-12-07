@@ -69,9 +69,6 @@ def connect_ssh(server, user, password):
         ssh = paramiko.SSHClient()
         # The following line is required if you want the script to be able to access a server that's not yet in the known_hosts file
         ssh.set_missing_host_key_policy(paramiko.AutoAddPolicy())
-        print server
-        print user
-        print password
         ssh.connect(server, username=user, password=password)
     except paramiko.ssh_exception.AuthenticationException as e:
         print e
