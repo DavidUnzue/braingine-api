@@ -146,16 +146,17 @@ def remove_file_after_delete(mapper, connection, target):
     """
     Remove file from filesystem after row gets deleted in database
     """
-    silent_remove(target.path)
+    file_path = os.path.join(current_app.config.get('SYMLINK_TO_DATA_STORAGE'), target.folder, current_app.config.get('UPLOADS_FOLDER'), target.name)
+    silent_remove(file_path)
 
 
 @db.event.listens_for(Experiment, 'after_delete')
 def remove_directory_after_delete(mapper, connection, target):
     """
-    Remove experiment files directory from filesystem after experiment row gets deleted in database
+    Remove experiment directory from filesystem after experiment row gets deleted in database
     """
-    files_folder = os.path.join(current_app.config.get('UPLOAD_FOLDER'), target.sha)
-    silent_remove(files_folder)
+    project_folder = os.path.join(current_app.config.get('SYMLINK_TO_DATA_STORAGE'), target.sha)
+    silent_remove(project_folder)
 
 
 @db.event.listens_for(ExperimentFile, 'before_insert')

@@ -87,3 +87,4 @@ flask/
 instance/
 tmp
 develop.sh
+*.log

@@ -6,7 +6,7 @@ class Config(object):
     DEBUG = False
     TESTING = False
     CSRF_ENABLED = True
-    SECRET_KEY = 'this-really-needs-to-be-changed'
+    SECRET_KEY = 'this-really-needs-to-be-changed' #TODO change this
     LOGGING_FORMAT = '%(asctime)s - %(name)s - %(levelname)s - %(message)s'
     LOGGING_LOCATION = 'butler-api.log'
     LOGGING_LEVEL = logging.DEBUG
@@ -18,14 +18,16 @@ class Config(object):
     SYMLINK_TO_DATA_STORAGE = './data/projects'
     # This is the path to the directory in the storage server where files will be uploaded to
     DATA_STORAGE = '/storage/scic/Data/External/butler/projects'
-    # this is the path the webapp uses internally to move the files to. this is a symlink
-    UPLOAD_FOLDER = '/Users/davidunzue/Projects/butler-api/data/projects'
-    # These are the extension that we are accepting to be uploaded
-    ALLOWED_EXTENSIONS = set(['txt','bam','bed','fasta','fa', 'fastq', 'fq', 'bz2'])
-    BIOINFO_MAGIC_FILE = './resources/magic/bioinformatics'
+    # the folder within a project folder where the uploaded files will be stored
+    UPLOADS_FOLDER = 'uploads'
+    # the folder within a project folder where the results of an analysis will be stored
+    ANALYSES_FOLDER = 'analyses'
     # pipelines location
     PIPELINES_STORAGE = '/storage/scic/Data/External/butler/pipelines'
     PIPELINES_FOLDER = './data/pipelines' # without trailing slash
+    # These are the extension that we are accepting to be uploaded
+    ALLOWED_EXTENSIONS = set(['txt','bam','bed','fasta','fa', 'fastq', 'fq', 'bz2'])
+    BIOINFO_MAGIC_FILE = './resources/magic/bioinformatics'
     # celery configuration
     CELERY_RESULT_BACKEND = 'redis://'
     CELERY_BROKER_URL = 'redis://localhost:6379/0'
