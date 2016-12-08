@@ -79,9 +79,15 @@ class ExperimentListController(Resource):
         tissue = parsed_args['tissue']
         information = parsed_args['information']
 
-        # setup  folder for project data
-        data_folder = os.path.join(current_app.config.get('SYMLINK_TO_DATA_STORAGE'), sha1_string(name))
-        create_folder(data_folder)
+        # setup  folders for project data
+        project_folder = os.path.join(current_app.config.get('SYMLINK_TO_DATA_STORAGE'), sha1_string(name))
+        create_folder(project_folder)
+
+        uploads_folder = os.path.join(project_folder, current_app.config.get('UPLOADS_FOLDER'))
+        create_folder(uploads_folder)
+
+        analyses_folder = os.path.join(project_folder, current_app.config.get('ANALYSES_FOLDER'))
+        create_folder(analyses_folder)
 
         experiment = Experiment(exp_type=exp_type, name=name, date=date, experimenter=experimenter, species=species, tissue=tissue, information=information)
         db.session.add(experiment)
@@ -153,10 +159,10 @@ class ExperimentFileListController(Resource):
         experiment_folder = sha1_string(experiment.name)
 
         # destination where python should write the file to internally, using the symlink to the mounted storage server
-        write_file_to = os.path.join(current_app.config.get('SYMLINK_TO_DATA_STORAGE'), experiment_folder)
+        write_file_to = os.path.join(current_app.config.get('SYMLINK_TO_DATA_STORAGE'), experiment_folder, current_app.config.get('UPLOADS_FOLDER'))
 
-        # path fo the file in the storage server
-        file_path = os.path.join(current_app.config.get('DATA_STORAGE'), experiment_folder, file_name)
+        # path to the file in the storage server
+        file_path = os.path.join(current_app.config.get('DATA_STORAGE'), experiment_folder, current_app.config.get('UPLOADS_FOLDER'), file_name)
 
         # upload file
         if newFile:
@@ -253,7 +259,6 @@ class ExperimentFileController(Resource):
     def download_file(self, experiment_file, attachment=False):
         """Makes a Flask response with the corresponding content-type encoded body"""
         from flask import send_file
-        file_path = os.path.join(current_app.config.get('SYMLINK_TO_DATA_STORAGE'), sha1_string(experiment.name))
         return send_file(experiment_file.path, mimetype=experiment_file.mime_type, as_attachment=attachment)
 
 
@@ -327,6 +332,11 @@ class ExperimentAnalysisListController(Resource):
         from string import Template
 
         experiment = Experiment.query.get(experiment_id)
+
+        # =====
+        # GET PIPELINE PARAMETERS
+        # =====
+
         # comment following lines out if parameters contained in inputs and outputs arrays
         # # merge input dictionaries (key-value pairs) into one single dictionary for inputs
         # input_params = {key: value for d in args['parameters']['inputs'] for key, value in d.items()}
@@ -346,17 +356,10 @@ class ExperimentAnalysisListController(Resource):
             pipeline_executor = pipeline_definition['executor']
             pipeline_command = pipeline_definition['command']
 
-        experiment_folder = os.path.join(current_app.config.get('DATA_STORAGE'), experiment.sha)
-        # write params into command template
-        pipeline_command = Template(pipeline_command)
-        pipeline_command_parameters = pipeline_command.substitute(pipeline_parameters, OUTPUT_FOLDER=experiment_folder)
+        # =====
+        # CREATE DB ENTRIES FOR NEW ANALYSIS
+        # =====
 
-        pipeline_file_path = os.path.join(current_app.config.get('PIPELINES_STORAGE'), pipeline_filename)
-        final_pipeline_command = '{} {} {}'.format(pipeline_executor, pipeline_file_path, pipeline_command_parameters)
-
-        # remote command should first change directory to experiment folder, then execute the pipeline command
-        remote_command = 'cd {}; {}'.format(experiment_folder, final_pipeline_command)
-        print remote_command
         # add DB entry for analysis
         experiment_analysis = ExperimentAnalysis(experiment_id=experiment_id, pipeline_id=args['pipeline_id'])
         db.session.add(experiment_analysis)
@@ -368,9 +371,31 @@ class ExperimentAnalysisListController(Resource):
             db.session.add(analysis_parameters)
             db.session.commit()
 
-        # analysis_url = api.url_for(ExperimentAnalysisController, experiment_id=experiment_id, analysis_id=experiment_analysis.id)
+        # =====
+        # CREATE AND SEND COMMAND TO BE EXECUTED
+        # =====
+
+        # build folder paths
+        experiment_folder = os.path.join(current_app.config.get('DATA_STORAGE'), experiment.sha)
+        output_folder = os.path.join(experiment_folder, current_app.config.get('ANALYSES_FOLDER'), experiment_analysis.id)
+        create_folder(output_folder)
+
+        # write params into command template
+        pipeline_command = Template(pipeline_command)
+        pipeline_command_parameters = pipeline_command.substitute(pipeline_parameters, OUTPUT_FOLDER=output_folder)
+
+        pipeline_file_path = os.path.join(current_app.config.get('PIPELINES_STORAGE'), pipeline_filename)
+        final_pipeline_command = '{} {} {}'.format(pipeline_executor, pipeline_file_path, pipeline_command_parameters)
+
+        # remote command should first change directory to experiment folder, then execute the pipeline command
+        remote_command = 'cd {}; {}'.format(experiment_folder, final_pipeline_command)
+
         # send task to celery and store it in a variable for returning task id in location header
         task = run_analysis.delay(remote_command, experiment_analysis.id)
+
+        # =====
+        # RETURN CREATED ANALYSIS INSTANCE AND TASK STATUS URL
+        # =====
 
         result = experiment_analysis_schema.dump(experiment_analysis).data
 
