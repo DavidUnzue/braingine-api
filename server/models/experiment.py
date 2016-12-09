@@ -233,3 +233,14 @@ class ExperimentAnalysisSchema(BaseSchema):
 
     class Meta:
         strict = True
+
+
+@db.event.listens_for(ExperimentAnalysis, 'after_delete')
+def remove_directory_after_delete(mapper, connection, target):
+    """
+    Remove analysis directory from filesystem after analysis row gets deleted in database
+    """
+    experiment = Experiment.query.get(target.experiment_id)
+    project_folder = os.path.join(current_app.config.get('SYMLINK_TO_DATA_STORAGE'), experiment.sha)
+    analysis_folder = os.path.join(project_folder, current_app.config.get('ANALYSES_FOLDER'), str(target.id))
+    silent_remove(analysis_folder)
