@@ -370,15 +370,20 @@ class ExperimentAnalysisListController(Resource):
             analysis_parameters = ExperimentAnalysisParameter(experiment_analysis_id=experiment_analysis.id, name=name, value=value)
             db.session.add(analysis_parameters)
             db.session.commit()
+        # =====
+        # CREATE ANALYSIS OUTPUT FOLDER
+        # =====
+        create_folder(os.path.join(current_app.config.get('SYMLINK_TO_DATA_STORAGE'), experiment.sha, current_app.config.get('ANALYSES_FOLDER'), str(experiment_analysis.id)))
+
 
         # =====
         # CREATE AND SEND COMMAND TO BE EXECUTED
         # =====
 
-        # build folder paths
+        # build folder paths for the remote command
+        # notice that the paths here are relative to the computing server and not to the web server
         experiment_folder = os.path.join(current_app.config.get('DATA_STORAGE'), experiment.sha)
-        output_folder = os.path.join(experiment_folder, current_app.config.get('ANALYSES_FOLDER'), experiment_analysis.id)
-        create_folder(output_folder)
+        output_folder = os.path.join(experiment_folder, current_app.config.get('ANALYSES_FOLDER'), str(experiment_analysis.id))
 
         # write params into command template
         pipeline_command = Template(pipeline_command)
@@ -388,7 +393,7 @@ class ExperimentAnalysisListController(Resource):
         final_pipeline_command = '{} {} {}'.format(pipeline_executor, pipeline_file_path, pipeline_command_parameters)
 
         # remote command should first change directory to experiment folder, then execute the pipeline command
-        remote_command = 'cd {}; {}'.format(experiment_folder, final_pipeline_command)
+        remote_command = 'cd {}; {}'.format(output_folder, final_pipeline_command)
 
         # send task to celery and store it in a variable for returning task id in location header
         task = run_analysis.delay(remote_command, experiment_analysis.id)
