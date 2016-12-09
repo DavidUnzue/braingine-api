@@ -16,7 +16,7 @@ from celery.bin.celery import main as celery_main
 # create app instance with settings defined by enviroment variable
 app = create_app(os.getenv('APP_SETTINGS') or 'default')
 
-migrate = Migrate(app, db)
+migrate = Migrate(app, db, compare_type=True)
 manager = Manager(app)
 
 manager.add_command('db', MigrateCommand)
