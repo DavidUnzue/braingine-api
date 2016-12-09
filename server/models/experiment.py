@@ -182,7 +182,7 @@ class ExperimentAnalysisParameter(Base):
 
     experiment_analysis_id = db.Column(db.Integer(), db.ForeignKey("experiment_analyses.id", ondelete="CASCADE"))
     name = db.Column(db.String(255), nullable=False, default='')
-    value = db.Column(db.String(255), nullable=False, default='')
+    value = db.Column(db.Text, nullable=False, default='')
 
     def __init__(self, experiment_analysis_id, name, value):
         self.experiment_analysis_id = experiment_analysis_id
