@@ -142,3 +142,11 @@ def write_file_remote(ssh, remote_folder, filename, data):
             f.write(chunk)
     sftp.close()
     ssh.close()
+
+
+def read_dir(directory):
+    """
+    Read files in a directory
+    """
+    (_, _, filenames) = os.walk(directory).next()
+    return filenames

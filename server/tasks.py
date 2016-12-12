@@ -4,12 +4,13 @@
     ~~~~~~~~~~~~~~
     module for long running tasks
 """
+import os, magic
 from flask import current_app
 from . import create_celery_app
-from utils import connect_ssh
+from utils import connect_ssh, read_dir
 # Import db instance
 from server import db
-from server.models.experiment import ExperimentAnalysis
+from server.models.experiment import ExperimentAnalysis, Experiment, ExperimentFile
 # celery logger
 from celery.utils.log import get_task_logger
 
@@ -40,6 +41,23 @@ class AnalysisTask(BaseTask):
         experiment_analysis = ExperimentAnalysis.query.get(experiment_analysis_id)
         experiment_analysis.state = status
         db.session.add(experiment_analysis)
+
+        experiment = Experiment.query.get(experiment_analysis.experiment_id)
+        experiment_folder = os.path.join(current_app.config.get('SYMLINK_TO_DATA_STORAGE'), experiment.sha)
+        analysis_folder = os.path.join(experiment_folder, current_app.config.get('ANALYSES_FOLDER'), str(experiment_analysis.id))
+
+        # read analysis files in directory
+        for filename in read_dir(analysis_folder):
+            file_path = os.path.join(analysis_folder, filename)
+            # initialize file handle for magic file type detection
+            fh_magic = magic.Magic(magic_file=current_app.config.get('BIOINFO_MAGIC_FILE'))
+            # get bioinformatic file type using magic on the first chunk of the file
+            file_type = fh_magic.from_file(file_path)
+            mime_type = magic.from_file(file_path, mime=True)
+
+            analysis_file = ExperimentFile(experiment_id=experiment.id, size_in_bytes=os.path.getsize(file_path), name=filename, path=file_path, mime_type=mime_type, file_type=file_type, folder=experiment.sha, group='analysis')
+            db.session.add(analysis_file)
+
         db.session.commit()
 
 
