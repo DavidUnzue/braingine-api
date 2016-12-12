@@ -236,17 +236,18 @@ class ExperimentFileListController(Resource):
         else:
             abort(404, "No file sent")
 
-    def get(self, experiment_id):
+    @use_args({
         # access querystring arguments to filter files by group
-        parser.add_argument('group', location=['args'])
-        parsed_args = parser.parse_args()
+        'group': fields.Str(location='querystring', missing='upload')
+    })
+    def get(self, args, experiment_id):
         filters = {}
         filters['experiment_id'] = experiment_id
-        if (parsed_args['group']):
-            filters['file_group'] = parsed_args['group']
-            # use unpacking here for passing an arbitrary bunch of keyword arguments to filter_by
-            # http://stackoverflow.com/a/19506429
-            # http://docs.python.org/release/2.7/tutorial/controlflow.html#unpacking-argument-lists
+        if (args['group']):
+            filters['group'] = args['group']
+        # use unpacking here for passing an arbitrary bunch of keyword arguments to filter_by
+        # http://stackoverflow.com/a/19506429
+        # http://docs.python.org/release/2.7/tutorial/controlflow.html#unpacking-argument-lists
         experiment_files = ExperimentFile.query.filter_by(**filters).all()
         result = experiment_file_schema.dump(experiment_files, many=True).data
         return result, 200
@@ -383,17 +384,17 @@ class ExperimentAnalysisListController(Resource):
         # build folder paths for the remote command
         # notice that the paths here are relative to the computing server and not to the web server
         experiment_folder = os.path.join(current_app.config.get('DATA_STORAGE'), experiment.sha)
-        output_folder = os.path.join(experiment_folder, current_app.config.get('ANALYSES_FOLDER'), str(experiment_analysis.id))
+        analysis_folder = os.path.join(experiment_folder, current_app.config.get('ANALYSES_FOLDER'), str(experiment_analysis.id))
 
         # write params into command template
         pipeline_command = Template(pipeline_command)
-        pipeline_command_parameters = pipeline_command.substitute(pipeline_parameters, OUTPUT_FOLDER=output_folder)
+        pipeline_command_parameters = pipeline_command.substitute(pipeline_parameters, ANALYSIS_FOLDER=analysis_folder)
 
         pipeline_file_path = os.path.join(current_app.config.get('PIPELINES_STORAGE'), pipeline_filename)
         final_pipeline_command = '{} {} {}'.format(pipeline_executor, pipeline_file_path, pipeline_command_parameters)
 
         # remote command should first change directory to experiment folder, then execute the pipeline command
-        remote_command = 'cd {}; {}'.format(output_folder, final_pipeline_command)
+        remote_command = 'cd {}; {}'.format(analysis_folder, final_pipeline_command)
 
         # send task to celery and store it in a variable for returning task id in location header
         task = run_analysis.delay(remote_command, experiment_analysis.id)
