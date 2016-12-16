@@ -24,12 +24,12 @@ class Experiment(Base):
 
     # one-to-many relationship to ExperimentFile
     # one experiments can contain many files, one file belongs only to one experiment
-    files = db.relationship('ExperimentFile', backref='experiments',
+    files = db.relationship('ExperimentFile', backref='experiment',
                                 lazy='select', cascade="all, delete-orphan")
 
-    # one-to-many relationship to ExperimentFile
-    # one experiments can contain many files, one file belongs only to one experiment
-    analyses = db.relationship('ExperimentAnalysis', backref='experiments',
+    # one-to-many relationship to Analysis
+    # one experiments can contain many analyses, one analysis belongs only to one experiment
+    analyses = db.relationship('Analysis', backref='experiment',
                                 lazy='select', cascade="all, delete-orphan")
 
     # constructor
@@ -57,7 +57,7 @@ class ExperimentSchema(BaseSchema):
     information = fields.Str()
     sha = fields.Str()
     files = fields.Nested('ExperimentFileSchema', many=True)
-    analyses = fields.Nested('ExperimentAnalysisSchema', many=True)
+    analyses = fields.Nested('AnalysisSchema', many=True)
 
     class Meta:
         strict = True
@@ -83,7 +83,7 @@ def hash_after_update(target, value, oldvalue, initiator):
 # Define Experiment file model. File can actually be a file or a directory
 class ExperimentFile(Base):
 
-    __tablename__ = "experiment_files"
+    __tablename__ = "files"
 
     # Attributes
     # id of experiment this file belongs to
@@ -104,11 +104,15 @@ class ExperimentFile(Base):
     # a folder will essentially be a file with that mime type
     mime_type = db.Column(db.String(255))
     file_type = db.Column(db.String(255))
-    # a file belongs either to the  uploaded files group ('upload') or to analysis files group ('analysis')
-    group = db.Column(db.String(40), default='upload')
+    is_upload = db.Column(db.Boolean, nullable=False, default=False)
+
+    # a file can be input of many analyses
+    analyses_input = db.relationship('AssociationAnalysesInputFiles', backref="file")
+    # a file can be output of only one analysis
+    analyses_output = db.relationship('Analysis', backref="output_files")
 
     # constructor
-    def __init__(self, experiment_id, size_in_bytes, name, path, folder, mime_type, file_type, parent=None, group='upload'):
+    def __init__(self, experiment_id, size_in_bytes, name, path, folder, mime_type, file_type, is_upload=False, parent=None):
         self.experiment_id = experiment_id
         self.size_in_bytes = size_in_bytes
         self.name = name
@@ -117,7 +121,7 @@ class ExperimentFile(Base):
         self.parent = parent
         self.mime_type = mime_type
         self.file_type = file_type
-        self.group = group
+        self.is_upload = is_upload
 
     def __repr__(self):
         return '<Experiment file {}>'.format(self.id)
@@ -135,7 +139,7 @@ class ExperimentFileSchema(BaseSchema):
     sha = fields.Str()
     mime_type = fields.Str(dump_only=True)
     file_type = fields.Str()
-    group = fields.Str()
+    is_upload = fields.Bool()
 
     class Meta:
         strict = True
@@ -176,16 +180,32 @@ def hash_after_update(target, value, oldvalue, initiator):
     target.sha = filename_hash
 
 
-class ExperimentAnalysisParameter(Base):
+# class Upload(Base):
+#
+#     __tablename__ = 'uploads'
+#
+#     experiment_id = db.Column(db.Integer(), db.ForeignKey("experiments.id", ondelete="CASCADE"))
+#     file_id = db.Column(db.Integer(), db.ForeignKey("files.id", ondelete="CASCADE"))
+#
+#
+# class UploadSchema(BaseSchema):
+#     experiment_id = fields.Int(dump_only=True)
+#     file_id = fields.Int(dump_only=True)
+#
+#     class Meta:
+#         strict = True
 
-    __tablename__ = 'experiment_analysis_parameters'
 
-    experiment_analysis_id = db.Column(db.Integer(), db.ForeignKey("experiment_analyses.id", ondelete="CASCADE"))
+class AnalysisParameter(Base):
+
+    __tablename__ = 'analyses_parameters'
+
+    analysis_id = db.Column(db.Integer(), db.ForeignKey("analyses.id", ondelete="CASCADE"))
     name = db.Column(db.String(255), nullable=False, default='')
     value = db.Column(db.Text, nullable=False, default='')
 
-    def __init__(self, experiment_analysis_id, name, value):
-        self.experiment_analysis_id = experiment_analysis_id
+    def __init__(self, analysis_id, name, value):
+        self.analysis_id = analysis_id
         self.name = name
         self.value = value
 
@@ -193,8 +213,8 @@ class ExperimentAnalysisParameter(Base):
         return '<Experiment analysis parameter {}>'.format(self.id)
 
 
-class ExperimentAnalysisParameterSchema(BaseSchema):
-    experiment_analysis_id = fields.Int(dump_only=True)
+class AnalysisParameterSchema(BaseSchema):
+    analysis_id = fields.Int(dump_only=True)
     name = fields.Str()
     value = fields.Str()
 
@@ -202,10 +222,23 @@ class ExperimentAnalysisParameterSchema(BaseSchema):
         strict = True
 
 
-# Experiment contains analyses with programs/parameters/input&output workflows
-class ExperimentAnalysis(Base):
+# association table between analyses and input files
+# Many-to-Many relationship. One Analysis can contain many input files. One file can be input file of many analyses
+class AssociationAnalysesInputFiles(db.Model):
 
-    __tablename__ = 'experiment_analyses'
+    __tablename__ = 'association_analyses_inputFiles'
+
+    analysis_id = db.Column(db.Integer, db.ForeignKey('analyses.id'), primary_key=True)
+    file_id = db.Column(db.Integer, db.ForeignKey('files.id'), primary_key=True)
+    label = db.Column(db.String(255))
+
+    file = db.relationship('ExperimentFile', backref="analyses_input")
+    analysis = db.relationship('ExperimentFile', backref="input_files")
+
+
+class Analysis(Base):
+
+    __tablename__ = 'analyses'
 
     # id of experiment this analysis belongs to
     experiment_id = db.Column(db.Integer(), db.ForeignKey("experiments.id", ondelete="CASCADE"))
@@ -214,7 +247,15 @@ class ExperimentAnalysis(Base):
 
     # one-to-many relationship to experiment analysis parameters
     # An experiment analysis contains one or more parameters
-    parameters = db.relationship('ExperimentAnalysisParameter', backref='experiment_analyses', lazy='select', cascade="all, delete-orphan")
+    parameters = db.relationship('AnalysisParameter', backref='experiment_analyses', lazy='select', cascade="all, delete-orphan")
+
+    # many-to-many relationship
+    # one analysis can contain many input file, one file can be input of many analyses
+    input_files = db.relationship('AssociationAnalysesInputFiles', backref="analyses_input")
+
+    # many-to-one relationship
+    # one analysis can contain many output file, one file can only be output of one analysis
+    output_files = db.relationship('ExperimentFile', backref="analyses_output")
 
     def __init__(self, experiment_id, pipeline_id):
         self.experiment_id = experiment_id
@@ -224,18 +265,17 @@ class ExperimentAnalysis(Base):
         return '<Experiment analysis {}>'.format(self.id)
 
 
-class ExperimentAnalysisSchema(BaseSchema):
+class AnalysisSchema(BaseSchema):
     experiment_id = fields.Int(dump_only=True)
     pipeline_id = fields.Str() # pipeline id is a unique String, usually the pipeline file name wihtout extension
     state = fields.Str()
-    # parameters = fields.List(fields.Nested('ExperimentAnalysisParameterSchema'))
-    parameters = fields.Nested('ExperimentAnalysisParameterSchema', many=True)
+    parameters = fields.Nested('AnalysisParameterSchema', many=True)
 
     class Meta:
         strict = True
 
 
-@db.event.listens_for(ExperimentAnalysis, 'after_delete')
+@db.event.listens_for(Analysis, 'after_delete')
 def remove_directory_after_delete(mapper, connection, target):
     """
     Remove analysis directory from filesystem after analysis row gets deleted in database
