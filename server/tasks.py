@@ -10,7 +10,7 @@ from . import create_celery_app
 from utils import connect_ssh, read_dir
 # Import db instance
 from server import db
-from server.models.experiment import ExperimentAnalysis, Experiment, ExperimentFile
+from server.models.experiment import Analysis, Experiment, ExperimentFile
 # celery logger
 from celery.utils.log import get_task_logger
 
@@ -38,7 +38,7 @@ class AnalysisTask(BaseTask):
 
     def after_return(self, status, retval, task_id, args, kwargs, einfo):
         experiment_analysis_id = retval
-        experiment_analysis = ExperimentAnalysis.query.get(experiment_analysis_id)
+        experiment_analysis = Analysis.query.get(experiment_analysis_id)
         experiment_analysis.state = status
         db.session.add(experiment_analysis)
 
@@ -55,8 +55,9 @@ class AnalysisTask(BaseTask):
             file_type = fh_magic.from_file(file_path)
             mime_type = magic.from_file(file_path, mime=True)
 
-            analysis_file = ExperimentFile(experiment_id=experiment.id, size_in_bytes=os.path.getsize(file_path), name=filename, path=file_path, mime_type=mime_type, file_type=file_type, folder=experiment.sha, group='analysis')
-            db.session.add(analysis_file)
+            new_file = ExperimentFile(experiment_id=experiment.id, size_in_bytes=os.path.getsize(file_path), name=filename, path=file_path, mime_type=mime_type, file_type=file_type, folder=experiment.sha)
+            experiment_analysis.output_files.append(new_file)
+            db.session.add(new_file)
 
         db.session.commit()
 

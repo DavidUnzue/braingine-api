@@ -9,7 +9,7 @@ from auth import auth
 from server import db
 # Import models from models.py file
 # IMPORTANT!: this has to be done after the DB gets instantiated and in this case imported too
-from server.models.experiment import Experiment, ExperimentSchema, ExperimentFile, ExperimentFileSchema, ExperimentAnalysis, ExperimentAnalysisSchema, ExperimentAnalysisParameter, ExperimentAnalysisParameterSchema
+from server.models.experiment import Experiment, ExperimentSchema, ExperimentFile, ExperimentFileSchema, Analysis, AnalysisSchema, AnalysisParameter, AnalysisParameterSchema
 from server.utils import sha1_string, connect_ssh, write_file, write_file_in_chunks, create_folder
 # http://stackoverflow.com/a/30399108
 from . import api, tasks
@@ -24,7 +24,7 @@ from webargs.flaskparser import parser as webargs_parser, use_args
 
 experiment_schema = ExperimentSchema()
 experiment_file_schema = ExperimentFileSchema()
-experiment_analysis_schema = ExperimentAnalysisSchema()
+analysis_schema = AnalysisSchema()
 
 
 parser = reqparse.RequestParser()
@@ -138,7 +138,8 @@ class ExperimentFileListController(Resource):
 
     @use_args({
         'content-range': fields.Str(load_from='Content-Range', location='headers', missing=None),
-        'content-length': fields.Int(load_from='Content-Length', location='headers', missing=0)
+        'content-length': fields.Int(load_from='Content-Length', location='headers', missing=0),
+        'is_upload': fields.Bool(missing=False)
     })
     def post(self, args, experiment_id):
         parser.add_argument('files[]', action='append', type=werkzeug.datastructures.FileStorage, location=['files']) # TODO add custom marshmallow field
@@ -200,7 +201,7 @@ class ExperimentFileListController(Resource):
                         fh_magic = magic.Magic(magic_file=current_app.config.get('BIOINFO_MAGIC_FILE'))
                         # get bioinformatic file type using magic on the first chunk of the file
                         file_type = fh_magic.from_buffer(file_buffer)
-                        experimentFile = ExperimentFile(experiment_id=experiment_id, size_in_bytes=total_bytes, name=file_name, path=file_path, folder=experiment_folder, mime_type=mimetype, file_type=file_type)
+                        experimentFile = ExperimentFile(experiment_id=experiment_id, size_in_bytes=total_bytes, name=file_name, path=file_path, folder=experiment_folder, mime_type=mimetype, file_type=file_type, is_upload=args['is_upload'])
                         db.session.add(experimentFile)
                         db.session.commit()
                         result = experiment_file_schema.dump(experimentFile, many=False).data
@@ -225,7 +226,7 @@ class ExperimentFileListController(Resource):
                     # get file size from request's header content-length
                     file_size = args['content-length']
 
-                    experimentFile = ExperimentFile(experiment_id=experiment_id, size_in_bytes=file_size, name=file_name, path=file_path, folder=experiment_folder, mime_type=mimetype, file_type=file_type)
+                    experimentFile = ExperimentFile(experiment_id=experiment_id, size_in_bytes=file_size, name=file_name, path=file_path, folder=experiment_folder, mime_type=mimetype, file_type=file_type, is_upload=args['is_upload'])
                     db.session.add(experimentFile)
                     db.session.commit()
                     result = experiment_file_schema.dump(experimentFile, many=False).data
@@ -237,14 +238,14 @@ class ExperimentFileListController(Resource):
             abort(404, "No file sent")
 
     @use_args({
-        # access querystring arguments to filter files by group
-        'group': fields.Str(location='querystring', missing='upload')
+        # access querystring arguments to filter files by is_upload
+        'is_upload': fields.Bool(location='querystring', missing=False)
     })
     def get(self, args, experiment_id):
         filters = {}
         filters['experiment_id'] = experiment_id
-        if (args['group']):
-            filters['group'] = args['group']
+        if (args['is_upload']):
+            filters['is_upload'] = args['is_upload']
         # use unpacking here for passing an arbitrary bunch of keyword arguments to filter_by
         # http://stackoverflow.com/a/19506429
         # http://docs.python.org/release/2.7/tutorial/controlflow.html#unpacking-argument-lists
@@ -307,11 +308,11 @@ class ExperimentFileController(Resource):
         return result, 200
 
 
-class ExperimentAnalysisListController(Resource):
+class AnalysisListController(Resource):
 
     def get(self, experiment_id):
-        experiment_analyses = ExperimentAnalysis.query.filter_by(experiment_id=experiment_id).all()
-        result = experiment_analysis_schema.dump(experiment_analyses, many=True).data
+        experiment_analyses = Analysis.query.filter_by(experiment_id=experiment_id).all()
+        result = analysis_schema.dump(experiment_analyses, many=True).data
         return result, 200
 
     # example object
@@ -328,7 +329,7 @@ class ExperimentAnalysisListController(Resource):
     #         }
     #     ]
     # }
-    @use_args(experiment_analysis_schema)
+    @use_args(analysis_schema)
     def post(self, args, experiment_id):
         from string import Template
 
@@ -338,16 +339,6 @@ class ExperimentAnalysisListController(Resource):
         # GET PIPELINE PARAMETERS
         # =====
 
-        # comment following lines out if parameters contained in inputs and outputs arrays
-        # # merge input dictionaries (key-value pairs) into one single dictionary for inputs
-        # input_params = {key: value for d in args['parameters']['inputs'] for key, value in d.items()}
-        # # merge output dictionaries into one single dictionary for outputs
-        # output_params = {key: value for d in args['parameters']['outputs'] for key, value in d.items()}
-        # # merge both dictionaries, note that for duplicated keys, only the value of the second dict is stored, but parameters should be unique anyway
-        # pipeline_parameters = dict()
-        # pipeline_parameters.update(input_params)
-        # pipeline_parameters.update(output_params)
-
         # merge parameter dictionaries (key-value pairs) into one single dictionary, in order to work on Template.substitute
         pipeline_parameters = {d['name']: d['value'] for d in args['parameters']}
         # get pipeline command
@@ -356,19 +347,22 @@ class ExperimentAnalysisListController(Resource):
             pipeline_filename = pipeline_definition['filename']
             pipeline_executor = pipeline_definition['executor']
             pipeline_command = pipeline_definition['command']
+            pipeline_input_files = (input_file for input_file in pipeline_definition['inputs'] if input_file.type == "file")
+            pipeline_outputs = pipeline_definition['outputs']
+
 
         # =====
         # CREATE DB ENTRIES FOR NEW ANALYSIS
         # =====
 
         # add DB entry for analysis
-        experiment_analysis = ExperimentAnalysis(experiment_id=experiment_id, pipeline_id=args['pipeline_id'])
+        experiment_analysis = Analysis(experiment_id=experiment_id, pipeline_id=args['pipeline_id'])
         db.session.add(experiment_analysis)
         db.session.commit()
 
         # add DB entries for parameters for the analysis created before
         for name, value in pipeline_parameters.iteritems():
-            analysis_parameters = ExperimentAnalysisParameter(experiment_analysis_id=experiment_analysis.id, name=name, value=value)
+            analysis_parameters = AnalysisParameter(analysis_id=experiment_analysis.id, name=name, value=value)
             db.session.add(analysis_parameters)
             db.session.commit()
         # =====
@@ -403,29 +397,29 @@ class ExperimentAnalysisListController(Resource):
         # RETURN CREATED ANALYSIS INSTANCE AND TASK STATUS URL
         # =====
 
-        result = experiment_analysis_schema.dump(experiment_analysis).data
+        result = analysis_schema.dump(experiment_analysis).data
 
         return result, 202, {'Location': api.url_for(tasks.TaskStatusController, task_id=task.id)}
 
 
-class ExperimentAnalysisController(Resource):
+class AnalysisController(Resource):
 
     def get(self, experiment_id, analysis_id):
-        experiment_analysis = ExperimentAnalysis.query.filter_by(experiment_id=experiment_id, id=analysis_id).first()
-        result = experiment_analysis_schema.dump(experiment_analysis).data
+        experiment_analysis = Analysis.query.filter_by(experiment_id=experiment_id, id=analysis_id).first()
+        result = analysis_schema.dump(experiment_analysis).data
         return result, 200
 
     def delete(self, experiment_id, analysis_id):
-        experiment_analysis = ExperimentAnalysis.query.filter_by(experiment_id=experiment_id, id=analysis_id).first()
+        experiment_analysis = Analysis.query.filter_by(experiment_id=experiment_id, id=analysis_id).first()
         if not experiment_analysis:
             abort(404, "Analysis {} for experiment {} doesn't exist".format(experiment_id, analysis_id))
         db.session.delete(experiment_analysis)
         db.session.commit()
         return {}, 204
 
-    @use_args(experiment_analysis_schema)
+    @use_args(analysis_schema)
     def put(self, args, experiment_id, analysis_id):
-        experiment_analysis = ExperimentAnalysis.query.filter_by(experiment_id=experiment_id, id=analysis_id).first()
+        experiment_analysis = Analysis.query.filter_by(experiment_id=experiment_id, id=analysis_id).first()
         if not experiment_analysis:
             abort(404, "Experiment analysis {} doesn't exist".format(analysis_id))
         for k, v in args.items():
@@ -433,5 +427,5 @@ class ExperimentAnalysisController(Resource):
                 setattr(experiment_analysis, k, v)
         db.session.add(experiment_analysis)
         db.session.commit()
-        result = experiment_analysis_schema.dump(experiment_analysis).data
+        result = analysis_schema.dump(experiment_analysis).data
         return result, 200
