@@ -10,7 +10,7 @@ from config import config
 db = SQLAlchemy()
 
 def create_app(config_name, register_blueprints=True):
-    app = Flask(__name__, instance_relative_config=True)
+    app = Flask(__name__, instance_relative_config=True, template_folder='static/app')
     # load the config class defined in env var from config.py
     app.config.from_object(config[config_name])
     # load the configuration file from the instance folder.
