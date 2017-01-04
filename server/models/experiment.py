@@ -106,10 +106,7 @@ class ExperimentFile(Base):
     file_type = db.Column(db.String(255))
     is_upload = db.Column(db.Boolean, nullable=False, default=False)
 
-    # a file can be input of many analyses
-    analyses_input = db.relationship('AssociationAnalysesInputFiles', backref="file")
-    # a file can be output of only one analysis
-    analyses_output = db.relationship('Analysis', backref="output_files")
+    output_of_analysis_id = db.Column(db.Integer(), db.ForeignKey("analyses.id", ondelete="CASCADE"))
 
     # constructor
     def __init__(self, experiment_id, size_in_bytes, name, path, folder, mime_type, file_type, is_upload=False, parent=None):
@@ -224,16 +221,10 @@ class AnalysisParameterSchema(BaseSchema):
 
 # association table between analyses and input files
 # Many-to-Many relationship. One Analysis can contain many input files. One file can be input file of many analyses
-class AssociationAnalysesInputFiles(db.Model):
-
-    __tablename__ = 'association_analyses_inputFiles'
-
-    analysis_id = db.Column(db.Integer, db.ForeignKey('analyses.id'), primary_key=True)
-    file_id = db.Column(db.Integer, db.ForeignKey('files.id'), primary_key=True)
-    label = db.Column(db.String(255))
-
-    file = db.relationship('ExperimentFile', backref="analyses_input")
-    analysis = db.relationship('ExperimentFile', backref="input_files")
+association_analyses_input_files = db.Table('association_analyses_input_files', Base.metadata,
+    db.Column('analysis_id', db.Integer, db.ForeignKey('analyses.id'), primary_key=True),
+    db.Column('file_id', db.Integer, db.ForeignKey('files.id'), primary_key=True)
+)
 
 
 class Analysis(Base):
@@ -251,11 +242,11 @@ class Analysis(Base):
 
     # many-to-many relationship
     # one analysis can contain many input file, one file can be input of many analyses
-    input_files = db.relationship('AssociationAnalysesInputFiles', backref="analyses_input")
+    input_files = db.relationship('ExperimentFile', secondary=association_analyses_input_files, backref="input_of")
 
     # many-to-one relationship
     # one analysis can contain many output file, one file can only be output of one analysis
-    output_files = db.relationship('ExperimentFile', backref="analyses_output")
+    output_files = db.relationship('ExperimentFile', backref="output_of_analysis")
 
     def __init__(self, experiment_id, pipeline_id):
         self.experiment_id = experiment_id
