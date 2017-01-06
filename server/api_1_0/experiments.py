@@ -347,24 +347,41 @@ class AnalysisListController(Resource):
             pipeline_filename = pipeline_definition['filename']
             pipeline_executor = pipeline_definition['executor']
             pipeline_command = pipeline_definition['command']
-            pipeline_input_files = (input_file for input_file in pipeline_definition['inputs'] if input_file.type == "file")
-            pipeline_outputs = pipeline_definition['outputs']
+            pipeline_input_files = {pipeline_input['name']: "" for pipeline_input in pipeline_definition['parameters'] if pipeline_input['type'] == "file"}
+            pipeline_outputs = {output['name']: output['value'] for output in pipeline_definition['outputs']}
 
 
         # =====
         # CREATE DB ENTRIES FOR NEW ANALYSIS
         # =====
 
-        # add DB entry for analysis
+        # create analysis entity
         experiment_analysis = Analysis(experiment_id=experiment_id, pipeline_id=args['pipeline_id'])
-        db.session.add(experiment_analysis)
-        db.session.commit()
-
         # add DB entries for parameters for the analysis created before
-        for name, value in pipeline_parameters.iteritems():
-            analysis_parameters = AnalysisParameter(analysis_id=experiment_analysis.id, name=name, value=value)
-            db.session.add(analysis_parameters)
-            db.session.commit()
+        for param_name, param_value in pipeline_parameters.iteritems():
+            # look for input files
+            if param_name in pipeline_input_files:
+                file_paths = []
+                # add input files to analysis-file relationship
+                for file_id in param_value.split(','):
+                    # get object for current file from input files
+                    input_file = ExperimentFile.query.get(file_id)
+                    # add file to analysis
+                    experiment_analysis.input_files.append(input_file)
+                    # store file's path for each input file
+                    file_paths.append(input_file.path)
+                # include file paths for each param for later use in command building
+                pipeline_input_files[param_name] = ' '.join(file_paths)
+        # add analysis to DB
+        db.session.add(experiment_analysis)
+        # add parameters to DB
+        analysis_parameter = AnalysisParameter(analysis_id=experiment_analysis.id, name=param_name, value=param_value)
+        db.session.add(analysis_parameter)
+        db.session.commit()
+        # update parameters dict to include file paths instead of file ids
+        pipeline_parameters.update(pipeline_input_files)
+
+
         # =====
         # CREATE ANALYSIS OUTPUT FOLDER
         # =====
@@ -382,7 +399,7 @@ class AnalysisListController(Resource):
 
         # write params into command template
         pipeline_command = Template(pipeline_command)
-        pipeline_command_parameters = pipeline_command.substitute(pipeline_parameters, ANALYSIS_FOLDER=analysis_folder)
+        pipeline_command_parameters = pipeline_command.substitute(pipeline_parameters, **pipeline_outputs)
 
         pipeline_file_path = os.path.join(current_app.config.get('PIPELINES_STORAGE'), pipeline_filename)
         final_pipeline_command = '{} {} {}'.format(pipeline_executor, pipeline_file_path, pipeline_command_parameters)
