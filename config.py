@@ -8,7 +8,7 @@ class Config(object):
     CSRF_ENABLED = True
     SECRET_KEY = 'this-really-needs-to-be-changed' #TODO change this
     LOGGING_FORMAT = '%(asctime)s - %(name)s - %(levelname)s - %(message)s'
-    LOGGING_LOCATION = 'butler-api.log'
+    LOGGING_LOCATION = 'braingine-api.log'
     LOGGING_LEVEL = logging.DEBUG
     # disable warning 'SQLALCHEMY_TRACK_MODIFICATIONS adds significant overhead and will be disabled by default in the future.  Set it to True to suppress this warning'
     # this is needed in order to detect delete cascades and execute some code when that happens, such as deleting files when experiment gets deleted
@@ -17,13 +17,13 @@ class Config(object):
     #MAX_CONTENT_LENGTH = 8 * 1024 * 1024 # 8 MB
     SYMLINK_TO_DATA_STORAGE = './data/projects'
     # This is the path to the directory in the storage server where files will be uploaded to
-    DATA_STORAGE = '/storage/scic/Data/External/butler/projects'
+    DATA_STORAGE = '/storage/scic/Data/External/braingine/projects'
     # the folder within a project folder where the uploaded files will be stored
     UPLOADS_FOLDER = 'uploads'
     # the folder within a project folder where the results of an analysis will be stored
     ANALYSES_FOLDER = 'analyses'
     # pipelines location
-    PIPELINES_STORAGE = '/storage/scic/Data/External/butler/pipelines'
+    PIPELINES_STORAGE = '/storage/scic/Data/External/braingine/pipelines'
     PIPELINES_FOLDER = './data/pipelines' # without trailing slash
     # These are the extension that we are accepting to be uploaded
     ALLOWED_EXTENSIONS = set(['txt','bam','bed','fasta','fa', 'fastq', 'fq', 'bz2'])
@@ -40,7 +40,7 @@ class Config(object):
 
 class ProductionConfig(Config):
     DEBUG = False
-    SQLALCHEMY_DATABASE_URI = 'postgresql://localhost/butler'
+    SQLALCHEMY_DATABASE_URI = 'postgresql://localhost/braingine'
     USE_X_SENDFILE = True
 
     @classmethod
@@ -52,12 +52,12 @@ class DevelopmentConfig(Config):
     DEVELOPMENT = True
     DEBUG = True
     ERROR_404_HELP = False
-    SQLALCHEMY_DATABASE_URI = 'postgresql://localhost/butler_dev'
+    SQLALCHEMY_DATABASE_URI = 'postgresql://localhost/braingine_dev'
 
 
 class TestingConfig(Config):
     TESTING = True
-    SQLALCHEMY_DATABASE_URI = 'postgresql://localhost/butler_test'
+    SQLALCHEMY_DATABASE_URI = 'postgresql://localhost/braingine_test'
 
 
 config = {
