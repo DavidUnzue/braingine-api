@@ -56,6 +56,7 @@ def sha1_string(string):
     Create SHA1 hash of a given string.
     SHA-1 Hash is 20 bytes long. Hexdigest is twice that long, 40 bytes.
     """
+    string = string.encode('utf-8') # Unicode-objects must be encoded before hashing
     hash_object = hashlib.sha1(string)
     hex_dig = hash_object.hexdigest()
     return hex_dig
@@ -71,7 +72,7 @@ def connect_ssh(server, user, password):
         ssh.set_missing_host_key_policy(paramiko.AutoAddPolicy())
         ssh.connect(server, username=user, password=password)
     except paramiko.ssh_exception.AuthenticationException as e:
-        print e
+        print(e)
     return ssh
 
 
@@ -148,5 +149,5 @@ def read_dir(directory):
     """
     Read files in a directory
     """
-    (_, _, filenames) = os.walk(directory).next()
+    (_, _, filenames) = next(os.walk(directory))
     return filenames

@@ -7,7 +7,7 @@
 import os, magic
 from flask import current_app
 from . import create_celery_app
-from utils import connect_ssh, read_dir
+from .utils import connect_ssh, read_dir
 # Import db instance
 from server import db
 from server.models.experiment import Analysis, Experiment, ExperimentFile
@@ -68,6 +68,6 @@ def run_analysis(command, analysis_id):
     stdin, stdout, stderr = ssh.exec_command(command, get_pty=True)
     output = ''
     for line in stdout:
-        print line.strip('\n')
+        print(line.strip('\n'))
         output += line.strip('\n')
     return analysis_id
