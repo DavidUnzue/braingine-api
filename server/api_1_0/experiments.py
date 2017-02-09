@@ -1,10 +1,10 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
 
-import urllib, os, werkzeug, magic, json
+import urllib.request, urllib.parse, urllib.error, os, werkzeug, magic, json
 from flask import abort, make_response, current_app, request
 from flask.ext.restful import Resource, reqparse
-from auth import auth
+from .auth import auth
 # Import db instance
 from server import db
 # Import models from models.py file
@@ -50,7 +50,7 @@ class ExperimentListController(Resource):
             # querystring from url should be decoded here
             # see https://unspecified.wordpress.com/2008/05/24/uri-encoding/
             #search_query = urllib.unquote(parsed_args['q']).decode("utf-8")
-            search_query = urllib.unquote(parsed_args['q'])
+            search_query = urllib.parse.unquote(parsed_args['q'])
             # search for experiments containing the search query in their "name" or "experimenter" attributes
             # use "ilike" for searching case unsensitive
             experiments = Experiment.query.filter(or_(Experiment.name.ilike('%'+ search_query + '%'), Experiment.experimenter.ilike('%'+ search_query + '%'), Experiment.exp_type.ilike('%'+ search_query + '%'), Experiment.species.ilike('%'+ search_query + '%'), Experiment.tissue.ilike('%'+ search_query + '%'))).all()
@@ -299,7 +299,7 @@ class ExperimentFileController(Resource):
         experiment_file = ExperimentFile.query.filter_by(experiment_id=experiment_id, id=file_id).first()
         if not experiment_file:
             abort(404, "Experiment file {} doesn't exist".format(file_id))
-        for k, v in args.items():
+        for k, v in list(args.items()):
             if v is not None:
                 setattr(experiment_file, k, v)
         db.session.add(experiment_file)
@@ -358,7 +358,7 @@ class AnalysisListController(Resource):
         # create analysis entity
         experiment_analysis = Analysis(experiment_id=experiment_id, pipeline_id=args['pipeline_id'])
         # add DB entries for parameters for the analysis created before
-        for param_name, param_value in pipeline_parameters.iteritems():
+        for param_name, param_value in pipeline_parameters.items():
             # look for input files
             if param_name in pipeline_input_files:
                 file_paths = []
@@ -439,7 +439,7 @@ class AnalysisController(Resource):
         experiment_analysis = Analysis.query.filter_by(experiment_id=experiment_id, id=analysis_id).first()
         if not experiment_analysis:
             abort(404, "Experiment analysis {} doesn't exist".format(analysis_id))
-        for k, v in args.items():
+        for k, v in list(args.items()):
             if v is not None:
                 setattr(experiment_analysis, k, v)
         db.session.add(experiment_analysis)
