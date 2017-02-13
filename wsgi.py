@@ -9,7 +9,9 @@
 # sys.path.insert(0,"/var/www/braingine/")
 # os.chdir("/var/www/braingine")
 
-from manage import app
+from server import create_app
+
+app = create_app('production')
 
 if __name__ == "__main__":
     app.run()
