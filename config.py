@@ -8,7 +8,7 @@ class Config(object):
     CSRF_ENABLED = True
     SECRET_KEY = 'this-really-needs-to-be-changed' #TODO change this
     LOGGING_FORMAT = '%(asctime)s - %(name)s - %(levelname)s - %(message)s'
-    LOGGING_LOCATION = 'braingine-api.log'
+    LOGGING_LOCATION = 'var/log/nginx/braingine-api.log'
     LOGGING_LEVEL = logging.DEBUG
     # disable warning 'SQLALCHEMY_TRACK_MODIFICATIONS adds significant overhead and will be disabled by default in the future.  Set it to True to suppress this warning'
     # this is needed in order to detect delete cascades and execute some code when that happens, such as deleting files when experiment gets deleted
