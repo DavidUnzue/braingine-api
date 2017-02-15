@@ -32,6 +32,12 @@ class Config(object):
     CELERY_RESULT_BACKEND = 'redis://'
     CELERY_BROKER_URL = 'redis://localhost:6379/0'
     CELERY_ACCEPT_CONTENT = ['pickle', 'json', 'msgpack', 'yaml']
+    # LDAP config
+    LDAP_SERVER = 'ldap://mpibr.local:3268'
+    LDAP_USERNAME = 'ldap_read@MPIBR'
+    LDAP_PASSWORD = 'OPpgs7s1'
+    LDAP_BASE_DN = 'OU=MPIBR,DC=mpibr,DC=local'
+
 
     @staticmethod
     def init_app(app):
@@ -40,7 +46,7 @@ class Config(object):
 
 class ProductionConfig(Config):
     DEBUG = False
-    SQLALCHEMY_DATABASE_URI = 'postgresql://localhost/braingine'
+    SQLALCHEMY_DATABASE_URI = 'postgresql:///braingine'
     LOGGING_LOCATION = '/var/log/braingine/braingine-api.log'
     USE_X_SENDFILE = True
 

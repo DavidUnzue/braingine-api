@@ -1,16 +1,8 @@
-from flask import jsonify, make_response
+import ldap
+from flask import jsonify, make_response, g, current_app
 from flask.ext.httpauth import HTTPBasicAuth
+
 auth = HTTPBasicAuth()
-
-users = {
-    "david": "test"
-}
-
-@auth.get_password
-def get_pw(username):
-    if username in users:
-        return users.get(username)
-    return None
 
 @auth.error_handler
 def unauthorized():
@@ -19,11 +11,16 @@ def unauthorized():
     resp.headers['WWW-Authenticate'] = 'NoPopupBasic realm="Authentication Required"'
     return resp
 
-# TODO implement verification with db stored, hashed passwords
-# @auth.verify_password
-# def verify_password(username, password):
-#     user = User.query.filter_by(username = username).first()
-#     if not user or not user.verify_password(password):
-#         return False
-#     g.user = user
-#     return True
+@auth.verify_password
+def verify_password(username, password):
+    # connect to LDAP server and bind known user
+    con = ldap.initialize(current_app.config.get('LDAP_SERVER'), bytes_mode=False)
+    con.simple_bind_s(current_app.config.get('LDAP_USERNAME'), current_app.config.get('LDAP_PASSWORD'))
+    # search for authenticating user
+    results = con.search_s(current_app.config.get('LDAP_BASE_DN'), ldap.SCOPE_SUBTREE,                '(&(objectclass=Person)(|(mail={0})(sAMAccountName={0})))'.format(username))
+    # if user not found
+    if results is None or len(results) <= 0 or password == '':
+        return False
+    # if user found, authentication passed
+    g.user = username
+    return True
