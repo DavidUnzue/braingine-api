@@ -3,13 +3,15 @@ import os
 from celery import Celery
 from flask import Flask
 from flask.ext.sqlalchemy import SQLAlchemy
+# from flask_simpleldap import LDAP
 
 from config import config
 
 db = SQLAlchemy()
+# ldap = LDAP()
 
 def create_app(config_name, register_blueprints=True):
-    app = Flask(__name__, instance_relative_config=True, template_folder='static')
+    app = Flask(__name__, instance_relative_config=True)
     # load the config class defined in env var from config.py
     app.config.from_object(config[config_name])
     # load the configuration file from the instance folder.
@@ -18,6 +20,7 @@ def create_app(config_name, register_blueprints=True):
 
     config[config_name].init_app(app)
     db.init_app(app)
+    # ldap.init_app(app)
 
     if not app.debug:
         # Configure logging
