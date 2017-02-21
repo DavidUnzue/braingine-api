@@ -18,6 +18,9 @@ class Config(object):
     SYMLINK_TO_DATA_STORAGE = './data/projects'
     # This is the path to the directory in the storage server where files will be uploaded to
     DATA_STORAGE = '/storage/scic/Data/External/braingine/projects'
+    # path to directory within storage server where user files are located for alternative upload
+    DATA_STORAGE_PREUPLOADS = '/storage/scic/Data/External/braingine/preuploads'
+    SYMLINK_TO_DATA_STORAGE_PREUPLOADS = './data/preuploads'
     # the folder within a project folder where the uploaded files will be stored
     UPLOADS_FOLDER = 'uploads'
     # the folder within a project folder where the results of an analysis will be stored
