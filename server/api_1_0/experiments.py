@@ -2,7 +2,7 @@
 # -*- coding: utf-8 -*-
 
 import urllib.request, urllib.parse, urllib.error, os, werkzeug, magic, json
-from flask import abort, make_response, current_app, request
+from flask import abort, make_response, current_app, request, g
 from flask.ext.restful import Resource, reqparse
 from .auth import auth
 # Import db instance
@@ -139,20 +139,27 @@ class ExperimentFileListController(Resource):
     @use_args({
         'content-range': fields.Str(load_from='Content-Range', location='headers', missing=None),
         'content-length': fields.Int(load_from='Content-Length', location='headers', missing=0),
-        'is_upload': fields.Bool(missing=False)
+        'is_upload': fields.Bool(missing=False),
+        'filename_in_storage': fields.Str(missing=None)
     })
     def post(self, args, experiment_id):
         parser.add_argument('files[]', action='append', type=werkzeug.datastructures.FileStorage, location=['files']) # TODO add custom marshmallow field
+
         # get uploaded file
         parsed_args = parser.parse_args()
-        newFile = parsed_args['files[]'][0] # only one file per post request
+        # get filename if alternative upload
+        filename_in_storage = args['filename_in_storage']
 
-        # get file type
-        # http://werkzeug.pocoo.org/docs/0.11/datastructures/#werkzeug.datastructures.FileStorage
-        mimetype = newFile.mimetype;
+        try:
+            newFile = parsed_args['files[]'][0] # only one file per post request
+        except TypeError:
+            newFile = None
 
         # Make the filename safe, remove unsupported chars
-        file_name = werkzeug.secure_filename(newFile.filename)
+        try:
+            file_name = werkzeug.secure_filename(newFile.filename)
+        except AttributeError:
+            file_name = werkzeug.secure_filename(filename_in_storage)
 
         # get experiment
         experiment = Experiment.query.get(experiment_id)
@@ -170,6 +177,9 @@ class ExperimentFileListController(Resource):
             # file format is in allowed formats list defined in config
             if self.is_allowed_file(file_name):
 
+                # get file type
+                # http://werkzeug.pocoo.org/docs/0.11/datastructures/#werkzeug.datastructures.FileStorage
+                mimetype = newFile.mimetype;
 
                 # connect to remote file storage server
                 # ssh = connect_ssh(current_app.config.get('COMPUTING_SERVER_IP'), current_app.config.get('COMPUTING_SERVER_USER'), current_app.config.get('COMPUTING_SERVER_PASSWORD'))
@@ -235,7 +245,34 @@ class ExperimentFileListController(Resource):
             else:
                 abort(404, "File format is not allowed")
         else:
-            abort(404, "No file sent")
+            # check if filename sent as selection from storage server
+            if (filename_in_storage):
+                import shutil
+                # move file from preuploads to corresponding uploads folder
+                file_path = os.path.join(current_app.config.get('SYMLINK_TO_DATA_STORAGE'), experiment_folder, current_app.config.get('UPLOADS_FOLDER'), file_name)
+
+                shutil.move(os.path.join(current_app.config.get('SYMLINK_TO_DATA_STORAGE_PREUPLOADS'), filename_in_storage), file_path)
+
+                # initialize file handle for magic file type detection
+                fh_magic = magic.Magic(magic_file=current_app.config.get('BIOINFO_MAGIC_FILE'))
+                # get bioinformatic file type using magic
+                file_type = fh_magic.from_file(file_path)
+                # get mimetype of file using magic
+                mimetype = magic.from_file(file_path, mime=True)
+                # get file size
+                file_stats = os.stat(file_path)
+                file_size = file_stats.st_size
+
+                file_path_internal = os.path.join(current_app.config.get('DATA_STORAGE'), experiment_folder, current_app.config.get('UPLOADS_FOLDER'), file_name)
+
+                experimentFile = ExperimentFile(experiment_id=experiment_id, size_in_bytes=file_size, name=file_name, path=file_path_internal, folder=experiment_folder, mime_type=mimetype, file_type=file_type, is_upload=args['is_upload'])
+                db.session.add(experimentFile)
+                db.session.commit()
+                result = experiment_file_schema.dump(experimentFile, many=False).data
+                return result, 201
+
+            else:
+                abort(404, "No file sent")
 
     @use_args({
         # access querystring arguments to filter files by is_upload

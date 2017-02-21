@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-from flask import render_template, Blueprint
+from flask import send_file, Blueprint
 
 index_view = Blueprint('index', __name__)
 
@@ -7,4 +7,4 @@ index_view = Blueprint('index', __name__)
 @index_view.route('/', defaults={'path': ''})
 @index_view.route('/<path:path>')
 def index(path):
-    return render_template('index.html')
+    return send_file('./static/index.html')
