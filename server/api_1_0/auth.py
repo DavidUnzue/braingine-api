@@ -1,5 +1,5 @@
 import ldap
-from ldap.filter import escape_filter_chars
+from ldap import filter as ldap_filter
 from flask import jsonify, make_response, g, current_app
 from flask.ext.httpauth import HTTPBasicAuth
 
@@ -18,7 +18,7 @@ def verify_password(username, password):
     con = ldap.initialize(current_app.config.get('LDAP_SERVER'), bytes_mode=False)
     con.simple_bind_s(current_app.config.get('LDAP_USERNAME'), current_app.config.get('LDAP_PASSWORD'))
     # escape special chars before filtering to protect against LDAP injection
-    username = escape_filter_chars(username)
+    username = ldap_filter.escape_filter_chars(username)
     # search for authenticating user using LDAP filtering
     results = con.search_s(current_app.config.get('LDAP_BASE_DN'), ldap.SCOPE_SUBTREE,                '(&(objectclass=Person)(|(mail={0})(sAMAccountName={0})))'.format(username))
     # if user not found
