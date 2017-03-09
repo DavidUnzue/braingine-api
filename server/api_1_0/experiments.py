@@ -411,6 +411,8 @@ class AnalysisListController(Resource):
                 pipeline_input_files[param_name] = ' '.join(file_paths)
         # add analysis to DB
         db.session.add(experiment_analysis)
+        # flush to let DB create id primary key for experiment_analysis
+        db.session.flush()
         # add parameters to DB
         analysis_parameter = AnalysisParameter(analysis_id=experiment_analysis.id, name=param_name, value=param_value)
         db.session.add(analysis_parameter)
