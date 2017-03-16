@@ -219,12 +219,14 @@ class AnalysisParameterSchema(BaseSchema):
         strict = True
 
 
-# association table between analyses and input files
-# Many-to-Many relationship. One Analysis can contain many input files. One file can be input file of many analyses
-association_analyses_input_files = db.Table('association_analyses_input_files', Base.metadata,
-    db.Column('analysis_id', db.Integer, db.ForeignKey('analyses.id'), primary_key=True),
-    db.Column('file_id', db.Integer, db.ForeignKey('files.id'), primary_key=True)
-)
+class AssociationAnalysesInputFiles(Base):
+
+    __tablename__ = 'analyses_input_files'
+
+    analysis_id = db.Column(db.Integer, db.ForeignKey('analyses.id'), primary_key=True)
+    file_id = db.Column(db.Integer, db.ForeignKey('files.id'), primary_key=True)
+    pipeline_fieldname = db.Column(db.String(35), nullable=False, default='')
+    input_files = db.relationship('ExperimentFile')
 
 
 class Analysis(Base):
@@ -242,7 +244,7 @@ class Analysis(Base):
 
     # many-to-many relationship
     # one analysis can contain many input file, one file can be input of many analyses
-    input_files = db.relationship('ExperimentFile', secondary=association_analyses_input_files, backref="input_of")
+    input_files = db.relationship('AssociationAnalysesInputFiles')
 
     # many-to-one relationship
     # one analysis can contain many output file, one file can only be output of one analysis
