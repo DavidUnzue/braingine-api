@@ -9,8 +9,9 @@ from .auth import auth
 from server import db
 # Import models from models.py file
 # IMPORTANT!: this has to be done after the DB gets instantiated and in this case imported too
-from server.models.experiment import Experiment, ExperimentSchema, ExperimentFile, ExperimentFileSchema, Analysis, AnalysisSchema, AnalysisParameter, AnalysisParameterSchema
-from server.utils import sha1_string, connect_ssh, write_file, write_file_in_chunks, create_folder
+from server.models.experiment import Experiment, ExperimentSchema, ExperimentFile, ExperimentFileSchema, Analysis, AnalysisSchema, AnalysisParameter, AnalysisParameterSchema, AssociationAnalysesInputFiles
+from server.models.pipeline import Pipeline, PipelineSchema, PipelineInput, PipelineOutput
+from server.utils import sha1_string, sha256checksum, connect_ssh, write_file, write_file_in_chunks, create_folder
 # http://stackoverflow.com/a/30399108
 from . import api, tasks
 # celery task
@@ -25,6 +26,7 @@ from webargs.flaskparser import parser as webargs_parser, use_args
 experiment_schema = ExperimentSchema()
 experiment_file_schema = ExperimentFileSchema()
 analysis_schema = AnalysisSchema()
+pipeline_schema = PipelineSchema()
 
 
 parser = reqparse.RequestParser()
@@ -276,12 +278,12 @@ class ExperimentFileListController(Resource):
 
     @use_args({
         # access querystring arguments to filter files by is_upload
-        'is_upload': fields.Bool(location='querystring', missing=False)
+        'is_upload': fields.Bool(location='querystring', missing=None)
     })
     def get(self, args, experiment_id):
         filters = {}
         filters['experiment_id'] = experiment_id
-        if (args['is_upload']):
+        if args['is_upload'] is not None:
             filters['is_upload'] = args['is_upload']
         # use unpacking here for passing an arbitrary bunch of keyword arguments to filter_by
         # http://stackoverflow.com/a/19506429
@@ -352,59 +354,129 @@ class AnalysisListController(Resource):
         result = analysis_schema.dump(experiment_analyses, many=True).data
         return result, 200
 
-    # example object
-    # {
-    #     "pipeline_id": "examplePipeline",
-    #     "parameters": [
-    #         {
-    #             "name": "input1",
-    #             "value": "'This is a test'"
-    #         },
-    #         {
-    #             "name": "input2",
-    #             "value": "'This is another test'"
-    #         }
-    #     ]
-    # }
+    def get_pipeline_checksum(self, pipeline_id):
+        return sha256checksum(self.get_pipeline_definition_file(pipeline_id))
+
+    def get_pipeline_definition_file(self, pipeline_id):
+        """
+        Build filename for given pipeline
+        """
+        return '{}/{}.json'.format(current_app.config.get('PIPELINES_FOLDER'), pipeline_id)
+
+    def load_pipeline_definition(self, pipeline_id):
+        """
+        Serializes fields from a JSON pipeline definition file into a dictionary
+        """
+        with open(self.get_pipeline_definition_file(pipeline_id)) as pipeline_definition_file:
+            pipeline_definition = json.load(pipeline_definition_file)
+        return pipeline_definition
+
+    def store_pipeline(self, pipeline_id):
+        # serialize pipeline definition file
+        pipeline_definition = self.load_pipeline_definition(pipeline_id)
+
+        # get needed pipeline fields
+        pipeline_uid = pipeline_definition['uid']
+        pipeline_filename = pipeline_definition['filename']
+        pipeline_name = pipeline_definition['name']
+        pipeline_description = pipeline_definition['description']
+        pipeline_executor = pipeline_definition['executor']
+        pipeline_command = pipeline_definition['command']
+        pipeline_inputs = pipeline_definition['inputs']
+        pipeline_outputs = pipeline_definition['outputs']
+
+        pipeline_checksum = self.get_pipeline_checksum(pipeline_id)
+
+        # create pipeline object
+        pipeline = Pipeline(uid=pipeline_uid, filename=pipeline_filename, name=pipeline_name, description=pipeline_description, executor=pipeline_executor, command=pipeline_command, checksum=pipeline_checksum)
+
+        # add inputs and outputs relationschips
+        for pipeline_input in pipeline_inputs:
+            pipeline.inputs.append(PipelineInput(name=pipeline_input['name'],label=pipeline_input['label'],help=pipeline_input['help'],type=pipeline_input['type'],multiple=pipeline_input['multiple'],format=pipeline_input['format']))
+        for pipeline_output in pipeline_outputs:
+            pipeline.outputs.append(PipelineOutput(name=pipeline_output['name'],label=pipeline_output['label'],type=pipeline_output['type'],value=pipeline_output['value'],format=pipeline_output['format']))
+
+        # add to database
+        db.session.add(pipeline)
+        db.session.commit()
+
+        return pipeline
+
+    def update_pipeline(self, pipeline_object):
+        """
+        Updates a pipeline object retrieved from DB with new attribute values
+        """
+        pipeline_id = pipeline_object.uid
+        # load pipeline definition json
+        pipeline_definition_dict = self.load_pipeline_definition(pipeline_id)
+
+        pipeline_checksum = self.get_pipeline_checksum(pipeline_id)
+
+        # remove and add attributes needed to update DB entry
+        del pipeline_definition_dict['inputs']
+        del pipeline_definition_dict['outputs']
+        pipeline_definition_dict.update(dict(checksum=pipeline_checksum))
+
+        print(pipeline_definition_dict)
+        # iterate and update each attribute
+        for key, value in pipeline_definition_dict.items():
+            if value is not None:
+                # check if pipeline object has the current attribute and update it
+                # we want to avoid definition files injecting new non-existent object attributes
+                current_attr = getattr(pipeline_object, key, None)
+                if current_attr is not None:
+                    setattr(pipeline_object, key, value)
+
+        db.session.commit()
+
     @use_args(analysis_schema)
     def post(self, args, experiment_id):
         from string import Template
 
+        pipeline_id = args['pipeline_id']
         experiment = Experiment.query.get(experiment_id)
+
+        # get pipeline from DB
+        pipeline = Pipeline.query.filter_by(uid=pipeline_id).first()
+        # if pipeline not available in DB or checksum of definition file changed, create new DB entry
+        if pipeline is None or (pipeline.checksum != self.get_pipeline_checksum(pipeline_id)):
+            pipeline = self.store_pipeline(pipeline_id)
 
         # =====
         # GET PIPELINE PARAMETERS
         # =====
 
         # merge parameter dictionaries (key-value pairs) into one single dictionary, in order to work on Template.substitute
-        pipeline_parameters = {d['name']: d['value'] for d in args['parameters']}
-        # get pipeline command
-        with open('{}/{}.json'.format(current_app.config.get('PIPELINES_FOLDER'), args['pipeline_id'])) as pipeline_definition_file:
-            pipeline_definition = json.load(pipeline_definition_file)
-            pipeline_filename = pipeline_definition['filename']
-            pipeline_executor = pipeline_definition['executor']
-            pipeline_command = pipeline_definition['command']
-            pipeline_input_files = {pipeline_input['name']: "" for pipeline_input in pipeline_definition['parameters'] if pipeline_input['type'] == "file"}
-            pipeline_outputs = {output['name']: output['value'] for output in pipeline_definition['outputs']}
+        input_parameters = {d['name']: d['value'] for d in args['parameters']}
 
+        pipeline_input_files = {}
+        for pi in pipeline.inputs:
+            if pi.type == "file":
+                pipeline_input_files[pi.name] = ""
+        pipeline_output_files = {}
+        for pi in pipeline.outputs:
+            pipeline_output_files[pi.name] = pi.value
 
         # =====
         # CREATE DB ENTRIES FOR NEW ANALYSIS
         # =====
 
         # create analysis entity
-        experiment_analysis = Analysis(experiment_id=experiment_id, pipeline_id=args['pipeline_id'])
+        experiment_analysis = Analysis(experiment_id=experiment_id, pipeline_id=pipeline_id)
         # add DB entries for parameters for the analysis created before
-        for param_name, param_value in pipeline_parameters.items():
+        for param_name, param_value in input_parameters.items():
             # look for input files
             if param_name in pipeline_input_files:
                 file_paths = []
                 # add input files to analysis-file relationship
                 for file_id in param_value.split(','):
+                    # create association object
+                    analysis_input_file_assoc = AssociationAnalysesInputFiles(pipeline_fieldname=param_name)
                     # get object for current file from input files
                     input_file = ExperimentFile.query.get(file_id)
                     # add file to analysis
-                    experiment_analysis.input_files.append(input_file)
+                    analysis_input_file_assoc.input_file = input_file
+                    experiment_analysis.input_files.append(analysis_input_file_assoc)
                     # store file's path for each input file
                     file_paths.append(input_file.path)
                 # include file paths for each param for later use in command building
@@ -417,8 +489,9 @@ class AnalysisListController(Resource):
         analysis_parameter = AnalysisParameter(analysis_id=experiment_analysis.id, name=param_name, value=param_value)
         db.session.add(analysis_parameter)
         db.session.commit()
+
         # update parameters dict to include file paths instead of file ids
-        pipeline_parameters.update(pipeline_input_files)
+        input_parameters.update(pipeline_input_files)
 
 
         # =====
@@ -437,17 +510,17 @@ class AnalysisListController(Resource):
         analysis_folder = os.path.join(experiment_folder, current_app.config.get('ANALYSES_FOLDER'), str(experiment_analysis.id))
 
         # write params into command template
-        pipeline_command = Template(pipeline_command)
-        pipeline_command_parameters = pipeline_command.substitute(pipeline_parameters, **pipeline_outputs)
+        pipeline_command = Template(pipeline.command)
+        pipeline_command_parameters = pipeline_command.substitute(input_parameters, **pipeline_output_files)
 
-        pipeline_file_path = os.path.join(current_app.config.get('PIPELINES_STORAGE'), pipeline_filename)
-        final_pipeline_command = '{} {} {}'.format(pipeline_executor, pipeline_file_path, pipeline_command_parameters)
+        pipeline_file_path = os.path.join(current_app.config.get('PIPELINES_STORAGE'), pipeline.filename)
+        final_pipeline_command = '{} {} {}'.format(pipeline.executor, pipeline_file_path, pipeline_command_parameters)
 
         # remote command should first change directory to experiment folder, then execute the pipeline command
         remote_command = 'cd {}; {}'.format(analysis_folder, final_pipeline_command)
 
         # send task to celery and store it in a variable for returning task id in location header
-        task = run_analysis.delay(remote_command, experiment_analysis.id)
+        task = run_analysis.delay(remote_command, experiment_analysis.id, analysis_outputs=pipeline_output_files)
 
         # =====
         # RETURN CREATED ANALYSIS INSTANCE AND TASK STATUS URL

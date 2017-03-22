@@ -10,7 +10,7 @@ from . import create_celery_app
 from .utils import connect_ssh, read_dir
 # Import db instance
 from server import db
-from server.models.experiment import Analysis, Experiment, ExperimentFile
+from server.models.experiment import Analysis, Experiment, ExperimentFile, AssociationAnalysesOutputFiles
 # celery logger
 from celery.utils.log import get_task_logger
 
@@ -42,28 +42,48 @@ class AnalysisTask(BaseTask):
         experiment_analysis.state = status
         db.session.add(experiment_analysis)
 
+        analysis_outputs = kwargs['analysis_outputs']
+        analysis_ouput_file_fieldname_assoc = {}
+        for fieldname, filename in analysis_outputs.items():
+            analysis_ouput_file_fieldname_assoc[filename] = fieldname
+
         experiment = Experiment.query.get(experiment_analysis.experiment_id)
         experiment_folder = os.path.join(current_app.config.get('SYMLINK_TO_DATA_STORAGE'), experiment.sha)
         analysis_folder = os.path.join(experiment_folder, current_app.config.get('ANALYSES_FOLDER'), str(experiment_analysis.id))
 
-        # read analysis files in directory
-        for filename in read_dir(analysis_folder):
-            file_path = os.path.join(analysis_folder, filename)
-            # initialize file handle for magic file type detection
-            fh_magic = magic.Magic(magic_file=current_app.config.get('BIOINFO_MAGIC_FILE'))
-            # get bioinformatic file type using magic on the first chunk of the file
-            file_type = fh_magic.from_file(file_path)
-            mime_type = magic.from_file(file_path, mime=True)
+        for root, subdirs, files in os.walk(analysis_folder):
+            # read analysis files in directory
+            for filename in files:
+                basename = os.path.basename(os.path.normpath(os.path.dirname(filename)))
+                if filename in analysis_ouput_file_fieldname_assoc:
+                    pipeline_fieldname = filename
+                elif basename in analysis_ouput_file_fieldname_assoc:
+                    pipeline_fieldname = basename
+                else:
+                    continue
 
-            new_file = ExperimentFile(experiment_id=experiment.id, size_in_bytes=os.path.getsize(file_path), name=filename, path=file_path, mime_type=mime_type, file_type=file_type, folder=experiment.sha)
-            experiment_analysis.output_files.append(new_file)
-            db.session.add(new_file)
+                file_path = os.path.join(root, filename)
+                # initialize file handle for magic file type detection
+                fh_magic = magic.Magic(magic_file=current_app.config.get('BIOINFO_MAGIC_FILE'))
+
+                # get bioinformatic file type using magic on the first chunk of the file
+                file_type = fh_magic.from_file(file_path)
+                mime_type = magic.from_file(file_path, mime=True)
+
+                # create file object and add to DB
+                new_file = ExperimentFile(experiment_id=experiment.id, size_in_bytes=os.path.getsize(file_path), name=filename, path=file_path, mime_type=mime_type, file_type=file_type, folder=experiment.sha)
+                db.session.add(new_file)
+
+                # link file to analysis output
+                analysis_output_file_assoc = AssociationAnalysesOutputFiles(pipeline_fieldname=pipeline_fieldname)
+                analysis_output_file_assoc.output_file = new_file
+                experiment_analysis.output_files.append(analysis_output_file_assoc)
 
         db.session.commit()
 
 
 @celery.task(base=AnalysisTask)
-def run_analysis(command, analysis_id):
+def run_analysis(command, analysis_id, analysis_outputs):
     ssh = connect_ssh(current_app.config.get('COMPUTING_SERVER_IP'), current_app.config.get('COMPUTING_SERVER_USER'), current_app.config.get('COMPUTING_SERVER_PASSWORD'))
     stdin, stdout, stderr = ssh.exec_command(command, get_pty=True)
     output = ''
