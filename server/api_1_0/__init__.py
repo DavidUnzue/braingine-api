@@ -14,6 +14,7 @@ api.add_resource(experiments.ExperimentListController, '/experiments/')
 api.add_resource(experiments.ExperimentController, '/experiments/<int:experiment_id>')
 api.add_resource(experiments.ExperimentFileListController, '/experiments/<int:experiment_id>/files/')
 api.add_resource(experiments.ExperimentFileController, '/experiments/<int:experiment_id>/files/<int:file_id>')
+# analysis
 api.add_resource(experiments.AnalysisListController, '/experiments/<int:experiment_id>/analyses/')
 api.add_resource(experiments.AnalysisController, '/experiments/<int:experiment_id>/analyses/<int:analysis_id>')
 # pipeline

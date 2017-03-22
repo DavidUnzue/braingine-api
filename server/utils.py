@@ -15,6 +15,17 @@ import paramiko
 #             abort(404, {'message': "Unable to access {}".format(directory)})
 
 
+def sha256checksum(filename):
+    """
+    Return the hexadecimal checksum value for the contents of a file using SHA256
+    """
+    hash_sha256 = hashlib.sha256()
+    with open(filename, "rb") as f:
+        for chunk in iter(lambda: f.read(4096), b""):
+            hash_sha256.update(chunk)
+    return hash_sha256.hexdigest()
+
+
 def silent_remove(path):
     """
     Remove file from filesystem without raising an error if it does not exist
