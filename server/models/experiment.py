@@ -1,6 +1,5 @@
-from flask import current_app, url_for, json
+from flask import current_app
 from server import db
-from server.api_1_0 import api
 import os
 from server.utils import silent_remove, sha1_string
 from .base import Base, BaseSchema
@@ -226,7 +225,35 @@ class AssociationAnalysesInputFiles(Base):
     analysis_id = db.Column(db.Integer, db.ForeignKey('analyses.id'), primary_key=True)
     file_id = db.Column(db.Integer, db.ForeignKey('files.id'), primary_key=True)
     pipeline_fieldname = db.Column(db.String(35), nullable=False, default='')
-    input_files = db.relationship('ExperimentFile')
+    input_file = db.relationship('ExperimentFile')
+
+
+class AnalysisInputFileSchema(BaseSchema):
+    analysis_id = fields.Int(dump_only=True)
+    file_id = fields.Int(dump_only=True)
+    pipeline_fieldname = fields.Str()
+
+    class Meta:
+        strict = True
+
+
+class AssociationAnalysesOutputFiles(Base):
+
+    __tablename__ = 'analyses_output_files'
+
+    analysis_id = db.Column(db.Integer, db.ForeignKey('analyses.id'), primary_key=True)
+    file_id = db.Column(db.Integer, db.ForeignKey('files.id'), primary_key=True)
+    pipeline_fieldname = db.Column(db.String(35), nullable=False, default='')
+    output_file = db.relationship('ExperimentFile')
+
+
+class AnalysisOutputFileSchema(BaseSchema):
+    analysis_id = fields.Int(dump_only=True)
+    file_id = fields.Int(dump_only=True)
+    pipeline_fieldname = fields.Str()
+
+    class Meta:
+        strict = True
 
 
 class Analysis(Base):
@@ -244,11 +271,11 @@ class Analysis(Base):
 
     # many-to-many relationship
     # one analysis can contain many input file, one file can be input of many analyses
-    input_files = db.relationship('AssociationAnalysesInputFiles')
+    input_files = db.relationship('AssociationAnalysesInputFiles', lazy='select', cascade="all, delete-orphan")
 
     # many-to-one relationship
     # one analysis can contain many output file, one file can only be output of one analysis
-    output_files = db.relationship('ExperimentFile', backref="output_of_analysis")
+    output_files = db.relationship('AssociationAnalysesOutputFiles', lazy='select', cascade="all, delete-orphan")
 
     def __init__(self, experiment_id, pipeline_id):
         self.experiment_id = experiment_id
@@ -263,6 +290,8 @@ class AnalysisSchema(BaseSchema):
     pipeline_id = fields.Str() # pipeline id is a unique String, usually the pipeline file name wihtout extension
     state = fields.Str()
     parameters = fields.Nested('AnalysisParameterSchema', many=True)
+    input_files = fields.Nested('AnalysisInputFileSchema', many=True)
+    output_files = fields.Nested('AnalysisOutputFileSchema', many=True)
 
     class Meta:
         strict = True
