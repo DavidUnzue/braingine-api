@@ -520,7 +520,7 @@ class AnalysisListController(Resource):
         remote_command = 'cd {}; {}'.format(analysis_folder, final_pipeline_command)
 
         # send task to celery and store it in a variable for returning task id in location header
-        task = run_analysis.delay(remote_command, experiment_analysis.id, analysis_outputs=pipeline_output_files)
+        task = run_analysis.delay(remote_command, pipeline_id=pipeline_id, analysis_id=experiment_analysis.id, analysis_outputs=pipeline_output_files)
 
         # =====
         # RETURN CREATED ANALYSIS INSTANCE AND TASK STATUS URL
