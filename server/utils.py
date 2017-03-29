@@ -108,21 +108,30 @@ def write_file(dest_folder, filename, file_object):
     dest_file = os.path.join(dest_folder, filename)
 
     with open(dest_file, "wb") as f:
-        chunk = file_object.stream.read()
+        chunk = file_object.read()
         f.write(chunk)
 
 
-def write_file_in_chunks(dest_folder, filename, file_object):
+def write_file_in_chunks(dest_folder, filename, file_object, nbytes=0):
     """
     Write a file or file chunk to disk locally
+
+    :param str dest_folder: the folder to write the file to
+    :param str filename: the name of the file to be written
+    :param file file_object: file-like object to transfer contents from
+    :param int nbytes: amount of bytes to be written per chunk
     """
+    if nbytes > 0:
+        chunk_size = nbytes
+    else:
+        chunk_size = 8 * 1024 * 1024 # 8MB
+
     create_folder(dest_folder)
     dest_file = os.path.join(dest_folder, filename)
 
     with open(dest_file, "wb") as f:
-        chunk_size = 8 * 1024 * 1024 # 8MB
         while True:
-            chunk = file_object.stream.read(chunk_size)
+            chunk = file_object.read(chunk_size)
             if len(chunk) == 0:
                 return
             f.write(chunk)
