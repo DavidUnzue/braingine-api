@@ -25,9 +25,14 @@ class Config(object):
     UPLOADS_FOLDER = 'uploads'
     # the folder within a project folder where the results of an analysis will be stored
     ANALYSES_FOLDER = 'analyses'
+    # the folder within a project folder where the visualization figures will be stored
+    VISUALIZATIONS_FOLDER = 'visualizations'
     # pipelines location
     PIPELINES_STORAGE = '/storage/scic/Data/External/braingine/pipelines'
     PIPELINES_FOLDER = './data/pipelines' # without trailing slash
+    # plots location
+    PLOTS_STORAGE = '/storage/scic/Data/External/braingine/plots'
+    PLOTS_FOLDER = './data/plots' # without trailing slash
     # These are the extension that we are accepting to be uploaded
     ALLOWED_EXTENSIONS = set(['txt','bam','bed','fasta','fa', 'fastq', 'fq', 'bz2'])
     BIOINFO_MAGIC_FILE = './resources/magic/bioinformatics'

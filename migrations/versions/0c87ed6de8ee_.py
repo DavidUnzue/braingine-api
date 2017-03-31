@@ -1,13 +1,13 @@
 """empty message
 
-Revision ID: 2de2de85a1d0
+Revision ID: 0c87ed6de8ee
 Revises: None
-Create Date: 2017-03-21 14:46:56.800368
+Create Date: 2017-03-31 14:06:40.962151
 
 """
 
 # revision identifiers, used by Alembic.
-revision = '2de2de85a1d0'
+revision = '0c87ed6de8ee'
 down_revision = None
 
 from alembic import op
@@ -48,8 +48,26 @@ def upgrade():
     sa.Column('created_at', sa.DateTime(timezone=True), nullable=True),
     sa.Column('updated_at', sa.DateTime(timezone=True), nullable=True),
     sa.Column('experiment_id', sa.Integer(), nullable=True),
-    sa.Column('pipeline_id', sa.String(length=255), nullable=False),
+    sa.Column('pipeline_id', sa.Integer(), nullable=True),
     sa.Column('state', sa.String(length=15), nullable=False),
+    sa.ForeignKeyConstraint(['experiment_id'], ['experiments.id'], ondelete='CASCADE'),
+    sa.ForeignKeyConstraint(['pipeline_id'], ['pipelines.id'], ),
+    sa.PrimaryKeyConstraint('id')
+    )
+    op.create_table('files',
+    sa.Column('id', sa.Integer(), nullable=False),
+    sa.Column('created_at', sa.DateTime(timezone=True), nullable=True),
+    sa.Column('updated_at', sa.DateTime(timezone=True), nullable=True),
+    sa.Column('experiment_id', sa.Integer(), nullable=True),
+    sa.Column('size_in_bytes', sa.BigInteger(), nullable=True),
+    sa.Column('name', sa.String(length=255), nullable=False),
+    sa.Column('path', sa.String(length=255), nullable=False),
+    sa.Column('folder', sa.String(length=255), nullable=False),
+    sa.Column('parent', sa.Integer(), nullable=True),
+    sa.Column('sha', sa.String(length=40), nullable=True),
+    sa.Column('mime_type', sa.String(length=255), nullable=True),
+    sa.Column('file_type', sa.String(length=255), nullable=True),
+    sa.Column('is_upload', sa.Boolean(), nullable=False),
     sa.ForeignKeyConstraint(['experiment_id'], ['experiments.id'], ondelete='CASCADE'),
     sa.PrimaryKeyConstraint('id')
     )
@@ -80,35 +98,6 @@ def upgrade():
     sa.ForeignKeyConstraint(['pipeline_id'], ['pipelines.id'], ondelete='CASCADE'),
     sa.PrimaryKeyConstraint('id')
     )
-    op.create_table('analyses_parameters',
-    sa.Column('id', sa.Integer(), nullable=False),
-    sa.Column('created_at', sa.DateTime(timezone=True), nullable=True),
-    sa.Column('updated_at', sa.DateTime(timezone=True), nullable=True),
-    sa.Column('analysis_id', sa.Integer(), nullable=True),
-    sa.Column('name', sa.String(length=255), nullable=False),
-    sa.Column('value', sa.Text(), nullable=False),
-    sa.ForeignKeyConstraint(['analysis_id'], ['analyses.id'], ondelete='CASCADE'),
-    sa.PrimaryKeyConstraint('id')
-    )
-    op.create_table('files',
-    sa.Column('id', sa.Integer(), nullable=False),
-    sa.Column('created_at', sa.DateTime(timezone=True), nullable=True),
-    sa.Column('updated_at', sa.DateTime(timezone=True), nullable=True),
-    sa.Column('experiment_id', sa.Integer(), nullable=True),
-    sa.Column('size_in_bytes', sa.BigInteger(), nullable=True),
-    sa.Column('name', sa.String(length=255), nullable=False),
-    sa.Column('path', sa.String(length=255), nullable=False),
-    sa.Column('folder', sa.String(length=255), nullable=False),
-    sa.Column('parent', sa.Integer(), nullable=True),
-    sa.Column('sha', sa.String(length=40), nullable=True),
-    sa.Column('mime_type', sa.String(length=255), nullable=True),
-    sa.Column('file_type', sa.String(length=255), nullable=True),
-    sa.Column('is_upload', sa.Boolean(), nullable=False),
-    sa.Column('output_of_analysis_id', sa.Integer(), nullable=True),
-    sa.ForeignKeyConstraint(['experiment_id'], ['experiments.id'], ondelete='CASCADE'),
-    sa.ForeignKeyConstraint(['output_of_analysis_id'], ['analyses.id'], ondelete='CASCADE'),
-    sa.PrimaryKeyConstraint('id')
-    )
     op.create_table('analyses_input_files',
     sa.Column('id', sa.Integer(), nullable=False),
     sa.Column('created_at', sa.DateTime(timezone=True), nullable=True),
@@ -131,17 +120,63 @@ def upgrade():
     sa.ForeignKeyConstraint(['file_id'], ['files.id'], ),
     sa.PrimaryKeyConstraint('id', 'analysis_id', 'file_id')
     )
+    op.create_table('analyses_parameters',
+    sa.Column('id', sa.Integer(), nullable=False),
+    sa.Column('created_at', sa.DateTime(timezone=True), nullable=True),
+    sa.Column('updated_at', sa.DateTime(timezone=True), nullable=True),
+    sa.Column('analysis_id', sa.Integer(), nullable=True),
+    sa.Column('name', sa.String(length=255), nullable=False),
+    sa.Column('value', sa.Text(), nullable=False),
+    sa.ForeignKeyConstraint(['analysis_id'], ['analyses.id'], ondelete='CASCADE'),
+    sa.PrimaryKeyConstraint('id')
+    )
+    op.create_table('visualizations',
+    sa.Column('id', sa.Integer(), nullable=False),
+    sa.Column('created_at', sa.DateTime(timezone=True), nullable=True),
+    sa.Column('updated_at', sa.DateTime(timezone=True), nullable=True),
+    sa.Column('experiment_id', sa.Integer(), nullable=True),
+    sa.Column('plot_id', sa.Integer(), nullable=True),
+    sa.Column('output_file', sa.Integer(), nullable=True),
+    sa.ForeignKeyConstraint(['experiment_id'], ['experiments.id'], ondelete='CASCADE'),
+    sa.ForeignKeyConstraint(['output_file'], ['files.id'], ),
+    sa.ForeignKeyConstraint(['plot_id'], ['experiments.id'], ),
+    sa.PrimaryKeyConstraint('id')
+    )
+    op.create_table('visualizations_input_files',
+    sa.Column('id', sa.Integer(), nullable=False),
+    sa.Column('created_at', sa.DateTime(timezone=True), nullable=True),
+    sa.Column('updated_at', sa.DateTime(timezone=True), nullable=True),
+    sa.Column('visualization_id', sa.Integer(), nullable=False),
+    sa.Column('file_id', sa.Integer(), nullable=False),
+    sa.Column('plot_fieldname', sa.String(length=35), nullable=False),
+    sa.ForeignKeyConstraint(['file_id'], ['files.id'], ),
+    sa.ForeignKeyConstraint(['visualization_id'], ['visualizations.id'], ),
+    sa.PrimaryKeyConstraint('id', 'visualization_id', 'file_id')
+    )
+    op.create_table('visualizations_parameters',
+    sa.Column('id', sa.Integer(), nullable=False),
+    sa.Column('created_at', sa.DateTime(timezone=True), nullable=True),
+    sa.Column('updated_at', sa.DateTime(timezone=True), nullable=True),
+    sa.Column('visualization_id', sa.Integer(), nullable=True),
+    sa.Column('name', sa.String(length=255), nullable=False),
+    sa.Column('value', sa.Text(), nullable=False),
+    sa.ForeignKeyConstraint(['visualization_id'], ['visualizations.id'], ondelete='CASCADE'),
+    sa.PrimaryKeyConstraint('id')
+    )
     ### end Alembic commands ###
 
 
 def downgrade():
     ### commands auto generated by Alembic - please adjust! ###
+    op.drop_table('visualizations_parameters')
+    op.drop_table('visualizations_input_files')
+    op.drop_table('visualizations')
+    op.drop_table('analyses_parameters')
     op.drop_table('analyses_output_files')
     op.drop_table('analyses_input_files')
-    op.drop_table('files')
-    op.drop_table('analyses_parameters')
     op.drop_table('pipeline_outputs')
     op.drop_table('pipeline_inputs')
+    op.drop_table('files')
     op.drop_table('analyses')
     op.drop_table('pipelines')
     op.drop_table('experiments')
