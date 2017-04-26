@@ -11,7 +11,8 @@ class PlotInput(Base):
     label = db.Column(db.String(255))
     help = db.Column(db.String(255))
     type = db.Column(db.String(40))
-    multiple = db.Column(db.Boolean())
+    multiple = db.Column(db.Boolean(), default=False)
+    required = db.Column(db.Boolean(), default=False)
     format = db.Column(db.String(35))
     plot = db.relationship("Plot", back_populates="inputs")
 
@@ -24,6 +25,7 @@ class PlotInputSchema(BaseSchema):
     type = fields.Str()
     multiple = fields.Bool()
     format = fields.Str()
+    required = fields.Bool()
 
     class Meta:
         strict = True
@@ -39,10 +41,10 @@ class Plot(Base):
     executor = db.Column(db.String(35))
     command = db.Column(db.Text())
     checksum = db.Column(db.String(255))
-    inputs = db.relationship("PlotInputs", back_populates="plot", lazy='select', cascade="all, delete-orphan")
-    output_file = db.Column(db.Integer, db.ForeignKey('files.id'))
+    inputs = db.relationship("PlotInput", back_populates="plot", lazy='select', cascade="all, delete-orphan")
+    output_filename = db.Column(db.String(40))
 
-    def __init__(self, uid, filename, name, description, executor, command, checksum):
+    def __init__(self, uid, filename, name, description, executor, command, checksum, output_filename):
         self.uid = uid
         self.filename = filename
         self.name = name
@@ -50,6 +52,7 @@ class Plot(Base):
         self.executor = executor
         self.command = command
         self.checksum = checksum
+        self.output_filename = output_filename
 
     def __repr__(self):
         return '<Pipeline {}>'.format(self.id)
@@ -64,7 +67,7 @@ class PlotSchema(BaseSchema):
     command = fields.Str()
     checksum = fields.Str()
     inputs = fields.Nested('PipelineInputSchema', many=True)
-    output_file = fields.Int()
+    output_filename = fields.Str()
 
     class Meta:
         strict = True

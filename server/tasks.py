@@ -9,8 +9,9 @@ from flask import current_app
 from . import create_celery_app
 from .utils import connect_ssh, read_dir, write_file_in_chunks
 # Import db instance
-from server import db
-from server.models.experiment import Analysis, Experiment, ExperimentFile, AssociationAnalysesOutputFiles
+from . import db
+from .models.experiment import Analysis, Visualization, Experiment, ExperimentFile, AssociationAnalysesOutputFiles
+from .models.plot import Plot
 # celery logger
 from celery.utils.log import get_task_logger
 from celery import states as celery_states
@@ -25,6 +26,18 @@ class PipelineError(Exception):
     def __init__(self, message, exit_code, stdout, stderr):
         # call parent class with message
         super(PipelineError, self).__init__(message)
+        # custom attributes
+        self.exit_code = exit_code
+        self.stdout = stdout
+        self.stderr = stderr
+
+
+class PlotError(Exception):
+    """Exception raised when a remote running plot exits before finishing."""
+
+    def __init__(self, message, exit_code, stdout, stderr):
+        # call parent class with message
+        super(PlotError, self).__init__(message)
         # custom attributes
         self.exit_code = exit_code
         self.stdout = stdout
@@ -79,37 +92,53 @@ class AnalysisTask(BaseTask):
 
         # retrieve experiment info and folder to write output files to
         experiment = Experiment.query.get(experiment_analysis.experiment_id)
-        experiment_folder = os.path.join(current_app.config.get('SYMLINK_TO_DATA_STORAGE'), experiment.sha)
+        experiment_folder = os.path.join(current_app.config.get('EXPERIMENTS_FOLDER'), experiment.sha)
         analysis_folder = os.path.join(experiment_folder, current_app.config.get('ANALYSES_FOLDER'), str(experiment_analysis.id))
+        analysis_folder_internal = os.path.join(current_app.config.get('DATA_ROOT_INTERNAL'), analysis_folder)
 
         # create dict to associate analysis output files to corresponding fieldnames in pipeline definition
+        # this will just invert the key/value pairs within the original analysis_outputs dictionary
         analysis_outputs = kwargs['analysis_outputs']
-        analysis_ouput_file_fieldname_assoc = {}
+        analysis_output_file_fieldname_assoc = {}
         for fieldname, filename in analysis_outputs.items():
-            analysis_ouput_file_fieldname_assoc[filename] = fieldname
+            analysis_output_file_fieldname_assoc[filename] = fieldname
 
         # create DB entries for each analysis output file
-        for root, subdirs, files in os.walk(analysis_folder):
+        for root, subdirs, files in os.walk(analysis_folder_internal):
             # read analysis files in directory
             for filename in files:
-                basename = os.path.basename(os.path.normpath(os.path.dirname(filename)))
-                if filename in analysis_ouput_file_fieldname_assoc:
-                    pipeline_fieldname = filename
-                elif basename in analysis_ouput_file_fieldname_assoc:
-                    pipeline_fieldname = basename
+                # get name of folder where the file is located
+                basename = os.path.basename(os.path.normpath(root))
+                if filename in analysis_output_file_fieldname_assoc:
+                    # store pipeline fieldname for output file
+                    pipeline_fieldname = analysis_output_file_fieldname_assoc[filename]
+                elif basename in analysis_output_file_fieldname_assoc:
+                    # store pipeline fieldname for folder of output file
+                    pipeline_fieldname = analysis_output_file_fieldname_assoc[basename]
                 else:
                     continue
 
-                file_path = os.path.join(root, filename)
+                # remove internal root part (DATA_ROOT_INTERNAL) of path
+                clean_root = root[len(current_app.config.get('DATA_ROOT_INTERNAL')):]
+                # remove prefix slash
+                if (clean_root[0] == os.sep):
+                    clean_root = clean_root[1:]
+
+                # path to the file in the storage server
+                file_path = os.path.join(clean_root, filename)
+                file_path_internal = os.path.join(root, filename)
+
                 # initialize file handle for magic file type detection
                 fh_magic = magic.Magic(magic_file=current_app.config.get('BIOINFO_MAGIC_FILE'))
 
                 # get bioinformatic file type using magic
-                file_type = fh_magic.from_file(file_path)
-                mime_type = magic.from_file(file_path, mime=True)
+                file_type = fh_magic.from_file(file_path_internal)
+                mime_type = magic.from_file(file_path_internal, mime=True)
+
+                file_size = os.path.getsize(file_path_internal)
 
                 # create file object and add to DB
-                new_file = ExperimentFile(experiment_id=experiment.id, size_in_bytes=os.path.getsize(file_path), name=filename, path=file_path, mime_type=mime_type, file_type=file_type, folder=experiment.sha)
+                new_file = ExperimentFile(experiment_id=experiment.id, size_in_bytes=file_size, name=filename, path=file_path, mime_type=mime_type, file_type=file_type, folder=experiment.sha)
                 db.session.add(new_file)
 
                 # link file to analysis output
@@ -129,10 +158,61 @@ class AnalysisTask(BaseTask):
         pass
 
 
+class VisualizationTask(BaseTask):
+    def on_success(self, retval, task_id, args, kwargs):
+        # update visualization status
+        visualization_id = kwargs['visualization_id']
+        visualization = Visualization.query.get(visualization_id)
+        visualization.state = celery_states.SUCCESS
+        db.session.add(visualization)
+
+        # retrieve experiment info and folder to write output files to
+        experiment = Experiment.query.get(visualization.experiment_id)
+        experiment_folder = os.path.join(current_app.config.get('SYMLINK_TO_DATA_STORAGE'), experiment.sha)
+        visualization_folder = os.path.join(experiment_folder, current_app.config.get('VISUALIZATIONS_FOLDER'), str(visualization.id))
+
+        plot = Plot.query.get(kwargs['plot_id'])
+        visualization_file = os.path.join(visualization_folder, plot.output_filename, '.html')
+
+        # create DB entries for each analysis output file
+        for root, subdirs, files in os.walk(visualization_folder):
+            # read analysis files in directory
+            for filename in files:
+                # remove internal root part (DATA_ROOT_INTERNAL) of path
+                clean_root = root[len(current_app.config.get('DATA_ROOT_INTERNAL')):]
+                # remove prefix slash
+                if (clean_root[0] == os.sep):
+                    clean_root = clean_root[1:]
+
+                file_path = os.path.join(clean_root, filename)
+                file_path_internal = os.path.join(root, filename)
+                file_size = os.path.getsize(file_path_internal)
+                # initialize file handle for magic file type detection
+                fh_magic = magic.Magic(magic_file=current_app.config.get('BIOINFO_MAGIC_FILE'))
+
+                # get bioinformatic file type using magic
+                file_type = fh_magic.from_file(file_path_internal)
+                mime_type = magic.from_file(file_path_internal, mime=True)
+
+                # create file object and add to DB
+                new_file = ExperimentFile(experiment_id=experiment.id, size_in_bytes=file_size, name=filename, path=file_path, mime_type=mime_type, file_type=file_type, folder=experiment.sha)
+                db.session.add(new_file)
+                db.session.flush()
+
+                # link file to visualization output
+                visualization.output_file_id = new_file.id
+
+        db.session.commit()
+
+
 @celery.task(base=AnalysisTask)
 def run_analysis(command, **kwargs):
     ssh = connect_ssh(current_app.config.get('COMPUTING_SERVER_IP'), current_app.config.get('COMPUTING_SERVER_USER'), current_app.config.get('COMPUTING_SERVER_PASSWORD'))
     stdin, stdout, stderr = ssh.exec_command(command)
+    print(command)
+    # print stdout
+    for line in stdout:
+        print(line.strip("\n"))
     # exit code of pipeline script
     exit_code = stdout.channel.recv_exit_status()
     # if pipeline exits with error code (different than 0)
@@ -140,3 +220,20 @@ def run_analysis(command, **kwargs):
         message = "The pipeline with id '{}' raised an error".format(kwargs['pipeline_id'])
         raise PipelineError(message, exit_code, stdout, stderr)
     return kwargs['analysis_id']
+
+
+@celery.task(base=VisualizationTask)
+def create_visualization(command, **kwargs):
+    ssh = connect_ssh(current_app.config.get('COMPUTING_SERVER_IP'), current_app.config.get('COMPUTING_SERVER_USER'), current_app.config.get('COMPUTING_SERVER_PASSWORD'))
+    stdin, stdout, stderr = ssh.exec_command(command)
+    print(command)
+    # print stdout
+    for line in stdout:
+        print(line.strip("\n"))
+    # exit code of pipeline script
+    exit_code = stdout.channel.recv_exit_status()
+    # if pipeline exits with error code (different than 0)
+    if exit_code != 0:
+        message = "The plot with id '{}' raised an error".format(kwargs['plot_id'])
+        raise PlotError(message, exit_code, stdout, stderr)
+    return kwargs['visualization_id']

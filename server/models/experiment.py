@@ -245,6 +245,7 @@ class Analysis(Base):
     # id of experiment this analysis belongs to
     experiment_id = db.Column(db.Integer(), db.ForeignKey("experiments.id", ondelete="CASCADE"))
     pipeline_id = db.Column(db.Integer(), db.ForeignKey("pipelines.id"))
+    pipeline_uid = db.Column(db.String(), nullable=False, default='')
     state = db.Column(db.String(15), nullable=False, default='PENDING')
 
     # one-to-many relationship to experiment analysis parameters
@@ -259,9 +260,10 @@ class Analysis(Base):
     # one analysis can contain many output file, one file can only be output of one analysis
     output_files = db.relationship('AssociationAnalysesOutputFiles', lazy='select', cascade="all, delete-orphan")
 
-    def __init__(self, experiment_id, pipeline_id):
+    def __init__(self, experiment_id, pipeline_id, pipeline_uid):
         self.experiment_id = experiment_id
         self.pipeline_id = pipeline_id
+        self.pipeline_uid = pipeline_uid
 
     def __repr__(self):
         return '<Experiment analysis {}>'.format(self.id)
@@ -270,6 +272,7 @@ class Analysis(Base):
 class AnalysisSchema(BaseSchema):
     experiment_id = fields.Int(dump_only=True)
     pipeline_id = fields.Int(dump_only=True)
+    pipeline_uid = fields.Str()
     state = fields.Str()
     parameters = fields.Nested('AnalysisParameterSchema', many=True)
     input_files = fields.Nested('AnalysisInputFileSchema', many=True)
@@ -341,7 +344,9 @@ class Visualization(Base):
     # id of experiment this visualization belongs to
     experiment_id = db.Column(db.Integer(), db.ForeignKey("experiments.id", ondelete="CASCADE"))
     # id of plotting script the visualization uses
-    plot_id = db.Column(db.Integer(), db.ForeignKey("experiments.id"))
+    plot_id = db.Column(db.Integer(), db.ForeignKey("plots.id"))
+    plot_uid = db.Column(db.String(), nullable=False, default='')
+    state = db.Column(db.String(15), nullable=False, default='PENDING')
 
     # one-to-many relationship to visualization parameters
     # A visualization contains one or more parameters
@@ -353,11 +358,12 @@ class Visualization(Base):
 
     # one-to-one relationship
     # one visualization contains a single output file, one output file corresponds to a single visualization
-    output_file = db.Column(db.Integer(), db.ForeignKey("files.id"))
+    output_file_id = db.Column(db.Integer(), db.ForeignKey("files.id"))
 
-    def __init__(self, experiment_id, plot_id):
+    def __init__(self, experiment_id, plot_id, plot_uid):
         self.experiment_id = experiment_id
         self.plot_id = plot_id
+        self.plot_uid = plot_uid
 
     def __repr__(self):
         return '<Experiment visualization {}>'.format(self.id)
@@ -366,9 +372,11 @@ class Visualization(Base):
 class VisualizationSchema(BaseSchema):
     experiment_id = fields.Int(dump_only=True)
     plot_id = fields.Int(dump_only=True)
+    plot_uid = fields.Str()
+    state = fields.Str()
     parameters = fields.Nested('VisualizationParameterSchema', many=True)
     input_files = fields.Nested('VisualizationInputFileSchema', many=True)
-    output_file = fields.Int()
+    output_file_id = fields.Int()
 
     class Meta:
         strict = True
@@ -381,5 +389,5 @@ def remove_directory_after_delete(mapper, connection, target):
     """
     experiment = Experiment.query.get(target.experiment_id)
     project_folder = os.path.join(current_app.config.get('SYMLINK_TO_DATA_STORAGE'), experiment.sha)
-    visualization_folder = os.path.join(project_folder, current_app.config.get('VISUALIZATIONs_FOLDER'), str(target.id))
+    visualization_folder = os.path.join(project_folder, current_app.config.get('VISUALIZATIONS_FOLDER'), str(target.id))
     silent_remove(visualization_folder)
