@@ -31,26 +31,26 @@ class AnalysisListController(Resource):
         result = analysis_schema.dump(experiment_analyses, many=True).data
         return result, 200
 
-    def get_pipeline_checksum(self, pipeline_id):
-        return sha256checksum(self.get_pipeline_definition_file(pipeline_id))
+    def get_pipeline_checksum(self, pipeline_uid):
+        return sha256checksum(self.get_pipeline_definition_file(pipeline_uid))
 
-    def get_pipeline_definition_file(self, pipeline_id):
+    def get_pipeline_definition_file(self, pipeline_uid):
         """
         Build filename for given pipeline
         """
-        return '{}/{}.json'.format(current_app.config.get('PIPELINES_FOLDER'), pipeline_id)
+        return '{}/{}.json'.format(current_app.config.get('PIPELINES_FOLDER'), pipeline_uid)
 
-    def load_pipeline_definition(self, pipeline_id):
+    def load_pipeline_definition(self, pipeline_uid):
         """
         Serializes fields from a JSON pipeline definition file into a dictionary
         """
-        with open(self.get_pipeline_definition_file(pipeline_id)) as pipeline_definition_file:
+        with open(self.get_pipeline_definition_file(pipeline_uid)) as pipeline_definition_file:
             pipeline_definition = json.load(pipeline_definition_file)
         return pipeline_definition
 
-    def store_pipeline(self, pipeline_id):
+    def store_pipeline(self, pipeline_uid):
         # serialize pipeline definition file
-        pipeline_definition = self.load_pipeline_definition(pipeline_id)
+        pipeline_definition = self.load_pipeline_definition(pipeline_uid)
 
         # get needed pipeline fields
         pipeline_uid = pipeline_definition['uid']
@@ -62,7 +62,7 @@ class AnalysisListController(Resource):
         pipeline_inputs = pipeline_definition['inputs']
         pipeline_outputs = pipeline_definition['outputs']
 
-        pipeline_checksum = self.get_pipeline_checksum(pipeline_id)
+        pipeline_checksum = self.get_pipeline_checksum(pipeline_uid)
 
         # create pipeline object
         pipeline = Pipeline(uid=pipeline_uid, filename=pipeline_filename, name=pipeline_name, description=pipeline_description, executor=pipeline_executor, command=pipeline_command, checksum=pipeline_checksum)
@@ -94,7 +94,6 @@ class AnalysisListController(Resource):
         del pipeline_definition_dict['outputs']
         pipeline_definition_dict.update(dict(checksum=pipeline_checksum))
 
-        print(pipeline_definition_dict)
         # iterate and update each attribute
         for key, value in pipeline_definition_dict.items():
             if value is not None:
@@ -110,14 +109,14 @@ class AnalysisListController(Resource):
     def post(self, args, experiment_id):
         from string import Template
 
-        pipeline_id = args['pipeline_id']
+        pipeline_uid = args['pipeline_uid']
         experiment = Experiment.query.get(experiment_id)
 
         # get pipeline from DB
-        pipeline = Pipeline.query.filter_by(uid=pipeline_id).first()
+        pipeline = Pipeline.query.filter_by(uid=pipeline_uid).first()
         # if pipeline not available in DB or checksum of definition file changed, create new DB entry
-        if pipeline is None or (pipeline.checksum != self.get_pipeline_checksum(pipeline_id)):
-            pipeline = self.store_pipeline(pipeline_id)
+        if pipeline is None or (pipeline.checksum != self.get_pipeline_checksum(pipeline_uid)):
+            pipeline = self.store_pipeline(pipeline_uid)
 
         # =====
         # GET PIPELINE PARAMETERS
@@ -131,15 +130,19 @@ class AnalysisListController(Resource):
             if pi.type == "file":
                 pipeline_input_files[pi.name] = ""
         pipeline_output_files = {}
-        for pi in pipeline.outputs:
-            pipeline_output_files[pi.name] = pi.value
+        for po in pipeline.outputs:
+            pipeline_output_files[po.name.strip(os.sep)] = po.value
 
         # =====
         # CREATE DB ENTRIES FOR NEW ANALYSIS
         # =====
 
         # create analysis entity
-        experiment_analysis = Analysis(experiment_id=experiment_id, pipeline_id=pipeline_id)
+        experiment_analysis = Analysis(experiment_id=experiment_id, pipeline_id=pipeline.id, pipeline_uid=pipeline_uid)
+        # add analysis to DB
+        db.session.add(experiment_analysis)
+        # flush to let DB create id primary key for experiment_analysis
+        db.session.flush()
         # add DB entries for parameters for the analysis created before
         for param_name, param_value in input_parameters.items():
             # look for input files
@@ -155,16 +158,14 @@ class AnalysisListController(Resource):
                     analysis_input_file_assoc.input_file = input_file
                     experiment_analysis.input_files.append(analysis_input_file_assoc)
                     # store file's path for each input file
-                    file_paths.append(input_file.path)
+                    input_file_path = os.path.join(current_app.config.get('DATA_ROOT_EXTERNAL'), input_file.path)
+                    file_paths.append(input_file_path)
                 # include file paths for each param for later use in command building
                 pipeline_input_files[param_name] = ' '.join(file_paths)
-        # add analysis to DB
-        db.session.add(experiment_analysis)
-        # flush to let DB create id primary key for experiment_analysis
-        db.session.flush()
+            else:
+                analysis_parameter = AnalysisParameter(analysis_id=experiment_analysis.id, name=param_name, value=param_value)
+                db.session.add(analysis_parameter)
         # add parameters to DB
-        analysis_parameter = AnalysisParameter(analysis_id=experiment_analysis.id, name=param_name, value=param_value)
-        db.session.add(analysis_parameter)
         db.session.commit()
 
         # update parameters dict to include file paths instead of file ids
@@ -197,7 +198,7 @@ class AnalysisListController(Resource):
         remote_command = 'cd {}; {}'.format(analysis_folder, final_pipeline_command)
 
         # send task to celery and store it in a variable for returning task id in location header
-        task = run_analysis.delay(remote_command, pipeline_id=pipeline_id, analysis_id=experiment_analysis.id, analysis_outputs=pipeline_output_files)
+        task = run_analysis.delay(remote_command, pipeline_id=pipeline.id, analysis_id=experiment_analysis.id, analysis_outputs=pipeline_output_files)
 
         # =====
         # RETURN CREATED ANALYSIS INSTANCE AND TASK STATUS URL

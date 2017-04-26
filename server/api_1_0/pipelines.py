@@ -1,18 +1,14 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
 
-from flask import abort, current_app
-from flask.ext.restful import Resource, reqparse, fields
+from flask import current_app
+from flask.ext.restful import Resource
 
-from server import db
 from server.models.pipeline import PipelineSchema
-from . import api
 import json
 
 
 pipeline_schema = PipelineSchema()
-
-parser = reqparse.RequestParser()
 
 class PipelineListController(Resource):
     def get(self):
@@ -22,8 +18,8 @@ class PipelineListController(Resource):
         pipeline_files = [f for f in listdir(current_app.config.get('PIPELINES_FOLDER')) if isfile(join(current_app.config.get('PIPELINES_FOLDER'), f)) and f.endswith(".json")]
 
         pipeline_definition_list = list()
-        for pipleine_file in pipeline_files:
-            with open('{}/{}'.format(current_app.config.get('PIPELINES_FOLDER'), pipleine_file)) as pipeline_definition_file:
+        for pipeline_file in pipeline_files:
+            with open('{}/{}'.format(current_app.config.get('PIPELINES_FOLDER'), pipeline_file)) as pipeline_definition_file:
                 pipeline_definition = json.load(pipeline_definition_file)
                 pipeline_definition_list.append(pipeline_definition)
 

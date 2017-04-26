@@ -12,8 +12,8 @@ class PipelineInput(Base):
     label = db.Column(db.String(255))
     help = db.Column(db.String(255))
     type = db.Column(db.String(40))
-    multiple = db.Column(db.Boolean())
-    format = db.Column(db.String(35))
+    multiple = db.Column(db.Boolean(), default=False)
+    format = db.Column(db.String(35), default='')
 
 
 class PipelineInputSchema(BaseSchema):

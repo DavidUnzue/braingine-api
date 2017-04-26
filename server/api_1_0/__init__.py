@@ -5,7 +5,7 @@ from flask.ext.restful import Api
 api_blueprint = Blueprint('api', __name__)
 api = Api(api_blueprint)
 
-from . import experiments, analyses, pipelines, tasks, storage_files
+from . import experiments, analyses, pipelines, visualizations, plots, tasks, storage_files
 
 # API Endpoints
 
@@ -20,6 +20,12 @@ api.add_resource(analyses.AnalysisController, '/experiments/<int:experiment_id>/
 # pipeline
 api.add_resource(pipelines.PipelineListController, '/pipelines/')
 api.add_resource(pipelines.PipelineController, '/pipelines/<pipeline_filename>')
+# visualization
+api.add_resource(visualizations.VisualizationListController, '/experiments/<int:experiment_id>/visualizations/')
+api.add_resource(visualizations.VisualizationController, '/experiments/<int:experiment_id>/visualizations/<int:visualization_id>')
+# plot
+api.add_resource(plots.PlotListController, '/plots/')
+api.add_resource(plots.PlotController, '/plots/<plot_filename>')
 # task status
 api.add_resource(tasks.TaskStatusController, '/taskstatus/<task_id>')
 # storage files from preuploads folder

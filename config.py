@@ -15,6 +15,9 @@ class Config(object):
     SQLALCHEMY_TRACK_MODIFICATIONS = True
     # max. file size for uploaded file chunks per request
     #MAX_CONTENT_LENGTH = 8 * 1024 * 1024 # 8 MB
+    DATA_ROOT_EXTERNAL = '/storage/scic/Data/External/braingine'
+    DATA_ROOT_INTERNAL = './data'
+    EXPERIMENTS_FOLDER = 'projects'
     SYMLINK_TO_DATA_STORAGE = './data/projects'
     # This is the path to the directory in the storage server where files will be uploaded to
     DATA_STORAGE = '/storage/scic/Data/External/braingine/projects'

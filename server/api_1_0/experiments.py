@@ -166,10 +166,12 @@ class ExperimentFileListController(Resource):
         experiment_folder = sha1_string(experiment.name)
 
         # destination where python should write the file to internally, using the symlink to the mounted storage server
-        write_file_to = os.path.join(current_app.config.get('SYMLINK_TO_DATA_STORAGE'), experiment_folder, current_app.config.get('UPLOADS_FOLDER'))
+        write_file_to = os.path.join(current_app.config.get('DATA_ROOT_INTERNAL'), current_app.config.get('EXPERIMENTS_FOLDER'), experiment_folder, current_app.config.get('UPLOADS_FOLDER'))
 
         # path to the file in the storage server
-        file_path = os.path.join(current_app.config.get('DATA_STORAGE'), experiment_folder, current_app.config.get('UPLOADS_FOLDER'), file_name)
+        file_path = os.path.join(current_app.config.get('EXPERIMENTS_FOLDER'), experiment_folder, current_app.config.get('UPLOADS_FOLDER'), file_name)
+
+        file_path_internal = os.path.join(current_app.config.get('DATA_ROOT_INTERNAL'), file_path)
 
         # upload file
         if newFile:
@@ -248,23 +250,19 @@ class ExperimentFileListController(Resource):
             if (filename_in_storage):
                 import shutil
                 # move file from preuploads to corresponding uploads folder
-                file_path = os.path.join(current_app.config.get('SYMLINK_TO_DATA_STORAGE'), experiment_folder, current_app.config.get('UPLOADS_FOLDER'), file_name)
-
-                shutil.move(os.path.join(current_app.config.get('SYMLINK_TO_DATA_STORAGE_PREUPLOADS'), filename_in_storage), file_path)
+                shutil.move(os.path.join(current_app.config.get('SYMLINK_TO_DATA_STORAGE_PREUPLOADS'), filename_in_storage), write_file_to)
 
                 # initialize file handle for magic file type detection
                 fh_magic = magic.Magic(magic_file=current_app.config.get('BIOINFO_MAGIC_FILE'))
                 # get bioinformatic file type using magic
-                file_type = fh_magic.from_file(file_path)
+                file_type = fh_magic.from_file(file_path_internal)
                 # get mimetype of file using magic
-                mimetype = magic.from_file(file_path, mime=True)
+                mimetype = magic.from_file(file_path_internal, mime=True)
                 # get file size
-                file_stats = os.stat(file_path)
+                file_stats = os.stat(file_path_internal)
                 file_size = file_stats.st_size
 
-                file_path_internal = os.path.join(current_app.config.get('DATA_STORAGE'), experiment_folder, current_app.config.get('UPLOADS_FOLDER'), file_name)
-
-                experimentFile = ExperimentFile(experiment_id=experiment_id, size_in_bytes=file_size, name=file_name, path=file_path_internal, folder=experiment_folder, mime_type=mimetype, file_type=file_type, is_upload=args['is_upload'])
+                experimentFile = ExperimentFile(experiment_id=experiment_id, size_in_bytes=file_size, name=file_name, path=file_path, folder=experiment_folder, mime_type=mimetype, file_type=file_type, is_upload=args['is_upload'])
                 db.session.add(experimentFile)
                 db.session.commit()
                 result = experiment_file_schema.dump(experimentFile, many=False).data
@@ -297,8 +295,9 @@ class ExperimentFileController(Resource):
 
     def download_file(self, experiment_file, attachment=False):
         """Makes a Flask response with the corresponding content-type encoded body"""
-        from flask import send_file
-        return send_file(experiment_file.path, mimetype=experiment_file.mime_type, as_attachment=attachment)
+        from flask import send_from_directory
+        data_path = os.path.abspath(current_app.config.get('DATA_ROOT_INTERNAL'))
+        return send_from_directory(data_path, experiment_file.path, mimetype=experiment_file.mime_type, as_attachment=attachment)
 
 
     @use_args({
