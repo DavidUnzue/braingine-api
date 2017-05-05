@@ -159,6 +159,28 @@ class AnalysisTask(BaseTask):
 
 
 class VisualizationTask(BaseTask):
+    def on_failure(self, exc, task_id, args, kwargs, einfo):
+        # update status
+        visualization_id = kwargs['visualization_id']
+        visualization = Analysis.query.get(visualization_id)
+        visualization.state = celery_states.FAILURE
+        db.session.add(visualization)
+        db.session.commit()
+
+        # retrieve experiment info and folder to write output files to
+        experiment = Experiment.query.get(visualization.experiment_id)
+        experiment_folder = os.path.join(current_app.config.get('SYMLINK_TO_DATA_STORAGE'), experiment.sha)
+        visualization_folder = os.path.join(experiment_folder, current_app.config.get('VISUALIZATIONS_FOLDER'), str(visualization.id))
+
+        # write stdout to file
+        write_file_in_chunks(visualization_folder, "log.out", exc.stdout)
+
+        # write stderr to file
+        write_file_in_chunks(visualization_folder, "error.out", exc.stderr)
+
+        # call method on parent class
+        super(VisualizationTask, self).on_failure(exc, task_id, args, kwargs, einfo)
+
     def on_success(self, retval, task_id, args, kwargs):
         # update visualization status
         visualization_id = kwargs['visualization_id']
