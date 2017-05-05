@@ -12,6 +12,7 @@ class Experiment(Base):
     __tablename__ = "experiments"
 
     # Attributes
+    user_id = db.Column(db.Integer, db.ForeignKey('users.id'))
     exp_type = db.Column(db.String(255))
     name = db.Column(db.String(255))
     date = db.Column(db.String(255)) #TODO use Date type here
@@ -32,7 +33,8 @@ class Experiment(Base):
                                 lazy='select', cascade="all, delete-orphan")
 
     # constructor
-    def __init__(self, exp_type, name, date, experimenter, species, tissue, information):
+    def __init__(self, user_id, exp_type, name, date, experimenter, species, tissue, information):
+        self.user_id = user_id
         self.exp_type = exp_type
         self.name = name
         self.date = date
@@ -47,6 +49,7 @@ class Experiment(Base):
 
 # Marshmallow schema for experiments
 class ExperimentSchema(BaseSchema):
+    user_id = fields.Int()
     name = fields.Str()
     exp_type = fields.Str()
     date = fields.Str()
