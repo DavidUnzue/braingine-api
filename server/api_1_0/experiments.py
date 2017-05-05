@@ -86,7 +86,7 @@ class ExperimentListController(Resource):
         analyses_folder = os.path.join(project_folder, current_app.config.get('ANALYSES_FOLDER'))
         create_folder(analyses_folder)
 
-        experiment = Experiment(exp_type=exp_type, name=name, date=date, experimenter=experimenter, species=species, tissue=tissue, information=information)
+        experiment = Experiment(user_id=g.user.id, exp_type=exp_type, name=name, date=date, experimenter=experimenter, species=species, tissue=tissue, information=information)
         db.session.add(experiment)
         db.session.commit()
         result = experiment_schema.dump(experiment, many=False).data
