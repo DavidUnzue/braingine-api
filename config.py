@@ -49,6 +49,7 @@ class Config(object):
     LDAP_PASSWORD = 'OPpgs7s1'
     LDAP_BASE_DN = 'OU=MPIBR,DC=mpibr,DC=local'
 
+    ITEMS_PER_PAGE = 25
 
     @staticmethod
     def init_app(app):

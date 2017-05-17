@@ -20,7 +20,7 @@ class FileListController(Resource):
     def get(self, args):
         # pagination
         page = args['page']
-        pagination = ExperimentFile.query.paginate(page, 5, False)
+        pagination = ExperimentFile.query.paginate(page, current_app.config.get('ITEMS_PER_PAGE'), False)
         files = pagination.items
         #experiments = Experiment.query.all()
         page_prev = None

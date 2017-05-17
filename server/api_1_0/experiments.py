@@ -52,7 +52,7 @@ class ExperimentListController(Resource):
             # use "ilike" for searching case unsensitive
             experiments = Experiment.query.filter(or_(Experiment.name.ilike('%'+ search_query + '%'), Experiment.experimenter.ilike('%'+ search_query + '%'), Experiment.exp_type.ilike('%'+ search_query + '%'), Experiment.species.ilike('%'+ search_query + '%'), Experiment.tissue.ilike('%'+ search_query + '%'))).all()
         else:
-            pagination = Experiment.query.paginate(page, 5, False)
+            pagination = Experiment.query.paginate(page, current_app.config.get('ITEMS_PER_PAGE'), False)
             experiments = pagination.items
             #experiments = Experiment.query.all()
             page_prev = None
@@ -273,17 +273,30 @@ class ExperimentFileListController(Resource):
 
     @use_args({
         # access querystring arguments to filter files by is_upload
-        'is_upload': fields.Bool(location='querystring', missing=None)
+        'is_upload': fields.Bool(location='querystring', missing=None),
+        'page': fields.Int(location='querystring', missing=1)
     })
     def get(self, args, experiment_id):
+        # pagination
+        page = args['page']
+        # filtering
         filters = {}
         filters['experiment_id'] = experiment_id
         if args['is_upload'] is not None:
             filters['is_upload'] = args['is_upload']
+
         # use unpacking here for passing an arbitrary bunch of keyword arguments to filter_by
         # http://stackoverflow.com/a/19506429
         # http://docs.python.org/release/2.7/tutorial/controlflow.html#unpacking-argument-lists
-        experiment_files = ExperimentFile.query.filter_by(**filters).all()
+        pagination = ExperimentFile.query.filter_by(**filters).paginate(page, current_app.config.get('ITEMS_PER_PAGE'), False)
+        experiment_files = pagination.items
+        page_prev = None
+        if pagination.has_prev:
+            page_prev = api.url_for(self, experiment_id=experiment_id, page=page-1, _external=True)
+        page_next = None
+        if pagination.has_next:
+            page_next = api.url_for(self, experiment_id=experiment_id, page=page+1, _external=True)
+
         result = experiment_file_schema.dump(experiment_files, many=True).data
         return result, 200
 
