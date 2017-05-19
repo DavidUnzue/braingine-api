@@ -58,8 +58,8 @@ class ExperimentSchema(BaseSchema):
     tissue = fields.Str()
     information = fields.Str()
     sha = fields.Str()
-    files = fields.Nested('ExperimentFileSchema', many=True)
-    analyses = fields.Nested('AnalysisSchema', many=True)
+    files = fields.Nested('ExperimentFileSchema', only='id', many=True)
+    analyses = fields.Nested('AnalysisSchema', only='id', many=True)
 
     class Meta:
         strict = True
