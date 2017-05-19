@@ -21,13 +21,14 @@ Jinja2==2.8
 kombu==3.0.35
 Mako==1.0.4
 MarkupSafe==0.23
-marshmallow==2.10.1
+marshmallow==2.13.5
 paramiko==2.0.2
 pexpect==4.0.1
 psycopg2==2.6.1
 ptyprocess==0.5.1
 pyasn1==0.1.9
 pycparser==2.14
+pyldap==2.4.28
 python-dateutil==2.4.2
 python-editor==0.5
 python-magic==0.4.12
