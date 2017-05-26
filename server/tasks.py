@@ -109,11 +109,15 @@ class AnalysisTask(BaseTask):
             for filename in files:
                 # get name of folder where the file is located
                 basename = os.path.basename(os.path.normpath(root))
+                filename_no_ext = os.path.splitext(filename)[0]
                 if filename in analysis_output_file_fieldname_assoc:
-                    # store pipeline fieldname for output file
+                    # in case fieldname in pipeline definition equals the output filename
                     pipeline_fieldname = analysis_output_file_fieldname_assoc[filename]
+                elif filename_no_ext in analysis_output_file_fieldname_assoc:
+                    # in case fieldname in pipeline definition equals the output filename without extension
+                    pipeline_fieldname = analysis_output_file_fieldname_assoc[filename_no_ext]
                 elif basename in analysis_output_file_fieldname_assoc:
-                    # store pipeline fieldname for folder of output file
+                    # in case fieldname in pipeline definition equals the output file's folder
                     pipeline_fieldname = analysis_output_file_fieldname_assoc[basename]
                 else:
                     continue
