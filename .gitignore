@@ -89,3 +89,4 @@ tmp
 develop.sh
 *.log
 data
+uwsgi.ini
