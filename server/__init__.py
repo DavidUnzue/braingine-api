@@ -34,10 +34,8 @@ def create_app(config_name, register_blueprints=True):
     if register_blueprints:
         # Import blueprints
         from .api_1_0 import api_blueprint as api_v1
-        from .views.index import index_view
         # Register blueprint(s)
         app.register_blueprint(api_v1, url_prefix='/api')
-        app.register_blueprint(index_view)
 
     return app
 
