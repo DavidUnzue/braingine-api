@@ -5,12 +5,12 @@ from flask import Flask
 from flask.ext.sqlalchemy import SQLAlchemy
 # from flask_simpleldap import LDAP
 
-from config import config
+from config import config, Config
 
 db = SQLAlchemy()
 # ldap = LDAP()
 # create celery app instance
-celery = Celery(__name__, backend=app.config['CELERY_RESULT_BACKEND'], broker=app.config['CELERY_BROKER_URL'])
+celery = Celery(__name__, backend=Config.CELERY_RESULT_BACKEND, broker=Config.CELERY_BROKER_URL)
 
 def create_app(config_name, register_blueprints=True):
     app = Flask(__name__, instance_relative_config=True)
