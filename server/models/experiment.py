@@ -32,6 +32,11 @@ class Experiment(Base):
     analyses = db.relationship('Analysis', backref='experiment',
                                 lazy='select', cascade="all, delete-orphan")
 
+    # one-to-many relationship to Visualization
+    # one experiments can contain many visualizations, one Visualization belongs only to one experiment
+    visualizations = db.relationship('Visualization', backref='experiment',
+                                lazy='select', cascade="all, delete-orphan")
+
     # constructor
     def __init__(self, user_id, exp_type, name, date, experimenter, species, tissue, information):
         self.user_id = user_id
@@ -361,7 +366,7 @@ class Visualization(Base):
 
     # one-to-one relationship
     # one visualization contains a single output file, one output file corresponds to a single visualization
-    output_file_id = db.Column(db.Integer(), db.ForeignKey("files.id"))
+    output_file_id = db.Column(db.Integer(), db.ForeignKey("files.id", ondelete="CASCADE"))
 
     def __init__(self, experiment_id, plot_id, plot_uid):
         self.experiment_id = experiment_id
