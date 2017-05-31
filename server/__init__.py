@@ -45,7 +45,7 @@ def create_celery_app(app=None):
     Create celery instance with app context bound to it, so we can use things like DB within a celery task.
     """
     app = app or create_app(os.getenv('APP_SETTINGS') or 'default', register_blueprints=False)
-    celery = Celery(__name__, backend=app.config['CELERY_RESULT_BACKEND'], broker=app.config['CELERY_BROKER_URL'])
+    celery = Celery(app.import_name, backend=app.config['CELERY_RESULT_BACKEND'], broker=app.config['CELERY_BROKER_URL'])
     celery.conf.update(app.config)
     TaskBase = celery.Task
 
