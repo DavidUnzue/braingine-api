@@ -2,6 +2,7 @@
 plugins = python3
 socket = {path/to/socket.sock}
 virtualenv = {path/to/viertualenv}
+env = APP_SETTINGS=production
 chdir = {absolute/path/to/this/app}
 pythonpath = {absolute/path/to/this/app}
 module = wsgi

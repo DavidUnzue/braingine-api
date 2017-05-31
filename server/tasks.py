@@ -6,7 +6,7 @@
 """
 import os, magic
 from flask import current_app
-from . import create_celery_app
+from . import celery
 from .utils import connect_ssh, read_dir, write_file_in_chunks
 # Import db instance
 from . import db
@@ -17,8 +17,6 @@ from celery.utils.log import get_task_logger
 from celery import states as celery_states
 
 logger = get_task_logger(__name__)
-
-celery = create_celery_app()
 
 class PipelineError(Exception):
     """Exception raised when a remote running pipeline exits before finishing."""
