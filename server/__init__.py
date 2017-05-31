@@ -9,6 +9,8 @@ from config import config
 
 db = SQLAlchemy()
 # ldap = LDAP()
+# create celery app instance
+celery = Celery(__name__, backend=app.config['CELERY_RESULT_BACKEND'], broker=app.config['CELERY_BROKER_URL'])
 
 def create_app(config_name, register_blueprints=True):
     app = Flask(__name__, instance_relative_config=True)
@@ -21,6 +23,8 @@ def create_app(config_name, register_blueprints=True):
     config[config_name].init_app(app)
     db.init_app(app)
     # ldap.init_app(app)
+    # apply app config to celery app
+    celery.conf.update(app.config)
 
     if not app.debug:
         # Configure logging
@@ -40,21 +44,21 @@ def create_app(config_name, register_blueprints=True):
     return app
 
 
-def create_celery_app(app=None):
-    """
-    Create celery instance with app context bound to it, so we can use things like DB within a celery task.
-    """
-    app = app or create_app(os.getenv('APP_SETTINGS') or 'default', register_blueprints=False)
-    celery = Celery(app.import_name, backend=app.config['CELERY_RESULT_BACKEND'], broker=app.config['CELERY_BROKER_URL'])
-    celery.conf.update(app.config)
-    TaskBase = celery.Task
-
-    class ContextTask(TaskBase):
-        abstract = True
-
-        def __call__(self, *args, **kwargs):
-            with app.app_context():
-                return TaskBase.__call__(self, *args, **kwargs)
-
-    celery.Task = ContextTask
-    return celery
+# def create_celery_app(app=None):
+#     """
+#     Create celery instance with app context bound to it, so we can use things like DB within a celery task.
+#     """
+#     app = app or create_app(os.getenv('APP_SETTINGS') or 'default', register_blueprints=False)
+#     celery = Celery(app.import_name, backend=app.config['CELERY_RESULT_BACKEND'], broker=app.config['CELERY_BROKER_URL'])
+#     celery.conf.update(app.config)
+#     TaskBase = celery.Task
+#
+#     class ContextTask(TaskBase):
+#         abstract = True
+#
+#         def __call__(self, *args, **kwargs):
+#             with app.app_context():
+#                 return TaskBase.__call__(self, *args, **kwargs)
+#
+#     celery.Task = ContextTask
+#     return celery
