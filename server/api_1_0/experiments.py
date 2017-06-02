@@ -39,10 +39,14 @@ parser.add_argument('q', location=['args'])
 class ExperimentListController(Resource):
     decorators = [auth.login_required]
 
-    def get(self):
+    @use_args({
+        'where': fields.Str(location='query', missing=None)
+    })
+    def get(self, args):
         parser.add_argument('page', type=int, default=1, location=['args'])
         parsed_args = parser.parse_args()
         page = parsed_args['page']
+        filters = {}
         if parsed_args['q']:
             # querystring from url should be decoded here
             # see https://unspecified.wordpress.com/2008/05/24/uri-encoding/
@@ -52,7 +56,9 @@ class ExperimentListController(Resource):
             # use "ilike" for searching case unsensitive
             experiments = Experiment.query.filter(or_(Experiment.name.ilike('%'+ search_query + '%'), Experiment.experimenter.ilike('%'+ search_query + '%'), Experiment.exp_type.ilike('%'+ search_query + '%'), Experiment.species.ilike('%'+ search_query + '%'), Experiment.tissue.ilike('%'+ search_query + '%'))).all()
         else:
-            pagination = Experiment.query.paginate(page, current_app.config.get('ITEMS_PER_PAGE'), False)
+            if args['where'] is not None:
+                filters = json.loads(args['where'])
+            pagination = Experiment.query.filter_by(**filters).paginate(page, current_app.config.get('ITEMS_PER_PAGE'), False)
             experiments = pagination.items
             #experiments = Experiment.query.all()
             page_prev = None
@@ -274,13 +280,16 @@ class ExperimentFileListController(Resource):
     @use_args({
         # access querystring arguments to filter files by is_upload
         'is_upload': fields.Bool(location='querystring', missing=None),
-        'page': fields.Int(location='querystring', missing=1)
+        'page': fields.Int(location='querystring', missing=1),
+        'where': fields.Str(location='query', missing=None)
     })
     def get(self, args, experiment_id):
         # pagination
         page = args['page']
         # filtering
         filters = {}
+        if args['where'] is not None:
+            filters = json.loads(args['where'])
         filters['experiment_id'] = experiment_id
         if args['is_upload'] is not None:
             filters['is_upload'] = args['is_upload']
