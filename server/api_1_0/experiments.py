@@ -10,7 +10,7 @@ from .. import db
 # Import models from models.py file
 # IMPORTANT!: this has to be done after the DB gets instantiated and in this case imported too
 from ..models.experiment import Experiment, ExperimentSchema, ExperimentFile, ExperimentFileSchema
-from ..utils import sha1_string, sha256checksum, write_file, write_file_in_chunks, create_folder
+from ..utils import sha1_string, sha256checksum, write_file, write_file_in_chunks, create_folder, update_object
 # http://stackoverflow.com/a/30399108
 from . import api
 # allow use of or syntax for sql queries
@@ -40,61 +40,71 @@ class ExperimentListController(Resource):
     decorators = [auth.login_required]
 
     @use_args({
-        'where': fields.Str(location='query', missing=None)
+        'where': fields.Str(location='query', missing=None),
+        'q': fields.Str(location='query', missing=None),
+        'page': fields.Int(location='query', missing=1)
     })
     def get(self, args):
-        parser.add_argument('page', type=int, default=1, location=['args'])
-        parsed_args = parser.parse_args()
-        page = parsed_args['page']
-        filters = {}
-        if parsed_args['q']:
+        if args['q']:
             # querystring from url should be decoded here
             # see https://unspecified.wordpress.com/2008/05/24/uri-encoding/
             #search_query = urllib.unquote(parsed_args['q']).decode("utf-8")
-            search_query = urllib.parse.unquote(parsed_args['q'])
+            search_query = urllib.parse.unquote(args['q'])
             # search for experiments containing the search query in their "name" or "experimenter" attributes
             # use "ilike" for searching case unsensitive
-            experiments = Experiment.query.filter(or_(Experiment.name.ilike('%'+ search_query + '%'), Experiment.experimenter.ilike('%'+ search_query + '%'), Experiment.exp_type.ilike('%'+ search_query + '%'), Experiment.species.ilike('%'+ search_query + '%'), Experiment.tissue.ilike('%'+ search_query + '%'))).all()
+            experiments_query = Experiment.query.filter(or_(Experiment.name.ilike('%'+ search_query + '%'),\
+            Experiment.experimenter.ilike('%'+ search_query + '%'),\
+            Experiment.exp_type.ilike('%'+ search_query + '%'),\
+            Experiment.species.ilike('%'+ search_query + '%'),\
+            Experiment.tissue.ilike('%'+ search_query + '%')))
+        elif args['where']:
+            filters = json.loads(args['where'])
+            experiments_query = Experiment.query.filter_by(**filters)
         else:
-            if args['where'] is not None:
-                filters = json.loads(args['where'])
-            pagination = Experiment.query.filter_by(**filters).paginate(page, current_app.config.get('ITEMS_PER_PAGE'), False)
-            experiments = pagination.items
-            #experiments = Experiment.query.all()
-            page_prev = None
-            if pagination.has_prev:
-                page_prev = api.url_for(self, page=page-1, _external=True)
-            page_next = None
-            if pagination.has_next:
-                page_next = api.url_for(self, page=page+1, _external=True)
+            experiments_query = Experiment.query
+
+        # create pagination
+        page = args['page']
+        pagination = experiments_query.paginate(page, current_app.config.get('ITEMS_PER_PAGE'), False)
+        experiments = pagination.items
+        # pagination headers
+        link_header = []
+        page_prev = None
+        if pagination.has_prev:
+            page_prev_url = api.url_for(self, page=page-1, _external=True)
+            page_prev = "<{}>; rel=\"prev\"".format(page_prev_url)
+            link_header.append(page_prev)
+        page_next = None
+        if pagination.has_next:
+            page_next_url = api.url_for(self, page=page+1, _external=True)
+            page_next = "<{}>; rel=\"next\"".format(page_next_url)
+            link_header.append(page_next)
 
         result = experiment_schema.dump(experiments, many=True).data
 
-        return result, 200
+        return result, 200, {'Link': ",".join(link_header)}
 
-    def post(self):
-        parsed_args = parser.parse_args()
-        exp_type = parsed_args['exp_type']
-        name = parsed_args['name']
-        date = parsed_args['date']
-        experimenter = parsed_args['experimenter']
-        species = parsed_args['species']
-        tissue = parsed_args['tissue']
-        information = parsed_args['information']
+    @use_args(experiment_schema)
+    def post(self, args):
+        try:
+            experiment = Experiment(user_id=g.user.id, **args)
+            db.session.add(experiment)
+            db.session.commit()
+        except SQLAlchemyError:
+            abort(404, "Error creating experiment \"{}\"".format(args['name']))
 
         # setup  folders for project data
-        project_folder = os.path.join(current_app.config.get('SYMLINK_TO_DATA_STORAGE'), sha1_string(name))
-        create_folder(project_folder)
-
+        project_folder = os.path.join(current_app.config.get('SYMLINK_TO_DATA_STORAGE'), sha1_string(experiment.name))
         uploads_folder = os.path.join(project_folder, current_app.config.get('UPLOADS_FOLDER'))
-        create_folder(uploads_folder)
-
         analyses_folder = os.path.join(project_folder, current_app.config.get('ANALYSES_FOLDER'))
-        create_folder(analyses_folder)
 
-        experiment = Experiment(user_id=g.user.id, exp_type=exp_type, name=name, date=date, experimenter=experimenter, species=species, tissue=tissue, information=information)
-        db.session.add(experiment)
-        db.session.commit()
+        try:
+            create_folder(project_folder)
+            create_folder(uploads_folder)
+            create_folder(analyses_folder)
+        except OSError as err:
+            abort(404, "Error creating experiment's directory structure on storage service: {}".format(err))
+
         result = experiment_schema.dump(experiment, many=False).data
         return result, 201
 
@@ -121,13 +131,13 @@ class ExperimentController(Resource):
         db.session.commit()
         return {}, 204
 
-    def put(self, experiment_id):
+    @use_args(experiment_schema)
+    def put(self, args, experiment_id):
         parsed_args = parser.parse_args()
         experiment = Experiment.query.get(experiment_id)
         if not experiment:
             abort(404, "Experiment {} doesn't exist".format(experiment_id))
-        experiment.name = parsed_args['name']
-        experiment.experimenter = parsed_args['experimenter']
+        update_object(experiment, args)
         db.session.add(experiment)
         db.session.commit()
         result = experiment_schema.dump(experiment).data
@@ -357,9 +367,7 @@ class ExperimentFileController(Resource):
         experiment_file = ExperimentFile.query.filter_by(experiment_id=experiment_id, id=file_id).first()
         if not experiment_file:
             abort(404, "Experiment file {} doesn't exist".format(file_id))
-        for k, v in list(args.items()):
-            if v is not None:
-                setattr(experiment_file, k, v)
+        update_object(experiment_file, args)
         db.session.add(experiment_file)
         db.session.commit()
         result = experiment_file_schema.dump(experiment_file).data

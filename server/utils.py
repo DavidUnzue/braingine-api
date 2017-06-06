@@ -171,3 +171,12 @@ def read_dir(directory):
     """
     (_, _, filenames) = next(os.walk(directory))
     return filenames
+
+
+def update_object(object, newValues):
+    """
+    Update object attributes with new values
+    """
+    for k, v in list(newValues.items()):
+        if v:
+            setattr(object, k, v)
