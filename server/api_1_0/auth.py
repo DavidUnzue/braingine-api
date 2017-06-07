@@ -2,7 +2,8 @@ import ldap
 from ldap import filter as ldap_filter
 from flask import jsonify, make_response, g, current_app
 from flask.ext.httpauth import HTTPBasicAuth
-from ..models.user import User, UserGroup
+from flask.ext.restful import Resource
+from ..models.user import User, UserSchema, UserGroup
 from .. import db
 
 auth = HTTPBasicAuth()
@@ -16,6 +17,10 @@ def unauthorized():
 
 @auth.verify_password
 def verify_password(login_name, password):
+    if current_app.config.get('DEBUG') == True:
+        user = User.query.filter_by(username=login_name).first()
+        g.user = user
+        return True
     # connect to LDAP server and bind known user
     con = ldap.initialize(current_app.config.get('LDAP_SERVER'), bytes_mode=False)
     con.simple_bind_s(current_app.config.get('LDAP_USERNAME'), current_app.config.get('LDAP_PASSWORD'))
@@ -67,3 +72,13 @@ def get_group_token(ldap_connection, cn):
     group_search = ldap_connection.search_s(current_app.config.get('LDAP_BASE_DN'), ldap.SCOPE_SUBTREE, group_search_filter, ['primaryGroupToken',])
 
     return group_search[0][1]['primaryGroupToken'][0].decode("utf-8")
+
+# include only specific fields in reponse
+user_schema = UserSchema(only=('id', 'username', 'email', 'fullname'))
+
+class LoginController(Resource):
+    decorators = [auth.login_required]
+
+    def get(self):
+        user = g.user
+        return user_schema.dump(user).data, 200
