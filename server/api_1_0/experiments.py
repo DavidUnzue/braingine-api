@@ -11,6 +11,7 @@ from .. import db
 # IMPORTANT!: this has to be done after the DB gets instantiated and in this case imported too
 from ..models.experiment import Experiment, ExperimentSchema, ExperimentFile, ExperimentFileSchema
 from ..utils import sha1_string, sha256checksum, write_file, write_file_in_chunks, create_folder, update_object
+from .api_utils import create_pagination_header, create_projection
 # http://stackoverflow.com/a/30399108
 from . import api
 # allow use of or syntax for sql queries
@@ -23,17 +24,8 @@ from webargs.flaskparser import use_args
 experiment_schema = ExperimentSchema()
 experiment_file_schema = ExperimentFileSchema()
 
-
+# used for getting files from request
 parser = reqparse.RequestParser()
-# The default argument type is a unicode string. This will be str in python3 and unicode in python2.
-parser.add_argument('exp_type', location=['form', 'json'])
-parser.add_argument('name', location=['form', 'json'])
-parser.add_argument('date', location=['form', 'json'])
-parser.add_argument('experimenter', location=['form', 'json'])
-parser.add_argument('species', location=['form', 'json'])
-parser.add_argument('tissue', location=['form', 'json'])
-parser.add_argument('information', location=['form', 'json'])
-parser.add_argument('q', location=['args'])
 
 
 class ExperimentListController(Resource):
@@ -41,8 +33,11 @@ class ExperimentListController(Resource):
 
     @use_args({
         'where': fields.Str(location='query', missing=None),
+        'projection': fields.Str(location='query', missing=None),
+        'merge': fields.Bool(location='query', missing=False),
         'q': fields.Str(location='query', missing=None),
-        'page': fields.Int(location='query', missing=1)
+        'page': fields.Int(location='query', missing=1),
+        'per_page': fields.Int(location='query', missing=None)
     })
     def get(self, args):
         if args['q']:
@@ -63,29 +58,32 @@ class ExperimentListController(Resource):
         else:
             experiments_query = Experiment.query
 
+        if args['projection']:
+            projection = json.loads(args['projection'])
+            experiments_query = create_projection(experiments_query, projection)
+        if args['merge']:
+            experiments_query = experiments_query.distinct()
+
         # create pagination
         page = args['page']
-        pagination = experiments_query.paginate(page, current_app.config.get('ITEMS_PER_PAGE'), False)
-        experiments = pagination.items
+        per_page = args['per_page'] or current_app.config.get('ITEMS_PER_PAGE')
+        pagination = experiments_query.paginate(page, per_page, False)
         # pagination headers
-        link_header = []
-        page_prev = None
-        if pagination.has_prev:
-            page_prev_url = api.url_for(self, page=page-1, _external=True)
-            page_prev = "<{}>; rel=\"prev\"".format(page_prev_url)
-            link_header.append(page_prev)
-        page_next = None
-        if pagination.has_next:
-            page_next_url = api.url_for(self, page=page+1, _external=True)
-            page_next = "<{}>; rel=\"next\"".format(page_next_url)
-            link_header.append(page_next)
+        link_header = create_pagination_header(self, pagination, page)
 
+        # reponse body
+        experiments = pagination.items
         result = experiment_schema.dump(experiments, many=True).data
 
-        return result, 200, {'Link': ",".join(link_header)}
+        return result, 200, link_header
 
     @use_args(experiment_schema)
     def post(self, args):
+        # setup  folders for project data
+        project_folder = os.path.join(current_app.config.get('SYMLINK_TO_DATA_STORAGE'), sha1_string(args['name']))
+        uploads_folder = os.path.join(project_folder, current_app.config.get('UPLOADS_FOLDER'))
+        analyses_folder = os.path.join(project_folder, current_app.config.get('ANALYSES_FOLDER'))
+
         try:
             experiment = Experiment(user_id=g.user.id, **args)
             db.session.add(experiment)
@@ -93,17 +91,18 @@ class ExperimentListController(Resource):
         except SQLAlchemyError:
             abort(404, "Error creating experiment \"{}\"".format(args['name']))
 
-        # setup  folders for project data
-        project_folder = os.path.join(current_app.config.get('SYMLINK_TO_DATA_STORAGE'), sha1_string(experiment.name))
-        uploads_folder = os.path.join(project_folder, current_app.config.get('UPLOADS_FOLDER'))
-        analyses_folder = os.path.join(project_folder, current_app.config.get('ANALYSES_FOLDER'))
-
         try:
             create_folder(project_folder)
             create_folder(uploads_folder)
             create_folder(analyses_folder)
         except OSError as err:
-            abort(404, "Error creating experiment's directory structure on storage service: {}".format(err))
+            try:
+                db.session.delete(experiment)
+                db.session.commit()
+                silent_remove(project_folder)
+            finally:
+                abort(404, "Error creating experiment's directory structure on storage service: {}".format(err))
+
 
         result = experiment_schema.dump(experiment, many=False).data
         return result, 201
@@ -133,7 +132,6 @@ class ExperimentController(Resource):
 
     @use_args(experiment_schema)
     def put(self, args, experiment_id):
-        parsed_args = parser.parse_args()
         experiment = Experiment.query.get(experiment_id)
         if not experiment:
             abort(404, "Experiment {} doesn't exist".format(experiment_id))

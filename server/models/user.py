@@ -29,6 +29,8 @@ class User(Base):
 
 class UserSchema(BaseSchema):
     username = fields.Str()
+    email = fields.Str()
+    fullname = fields.Str()
 
 
 class UserGroup(Base):

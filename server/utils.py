@@ -28,7 +28,7 @@ def sha256checksum(filename):
 
 def silent_remove(path):
     """
-    Remove file from filesystem without raising an error if it does not exist
+    Remove file/folder from filesystem without raising an error if it does not exist
     """
     # http://stackoverflow.com/questions/12450113/sqlalchemy-flask-after-insert-update-delete
     if os.path.isdir(path):
@@ -36,7 +36,7 @@ def silent_remove(path):
     else:
         try:
             os.remove(path)
-        except OSError as e: # this would be "except OSError, e:" before Python 2.6
+        except OSError as e:
             if e.errno != errno.ENOENT: # errno.ENOENT = no such file or directory
                 raise # re-raise exception if a different error occured
 

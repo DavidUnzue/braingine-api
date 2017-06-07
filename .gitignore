@@ -82,6 +82,7 @@ dump.rdb
 # Project specific files
 uploads
 .env
+.envrc
 flask/
 *.pyc
 instance/
