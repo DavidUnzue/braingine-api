@@ -50,10 +50,7 @@ class ExperimentListController(Resource):
             # search for experiments containing the search query in their "name" or "experimenter" attributes
             # use "ilike" for searching case unsensitive
             experiments_query = Experiment.query.filter(or_(Experiment.name.ilike('%'+ search_query + '%'),\
-            Experiment.experimenter.ilike('%'+ search_query + '%'),\
-            Experiment.exp_type.ilike('%'+ search_query + '%'),\
-            Experiment.species.ilike('%'+ search_query + '%'),\
-            Experiment.tissue.ilike('%'+ search_query + '%')))
+            Experiment.exp_type.ilike('%'+ search_query + '%')))
         elif args['where']:
             filters = json.loads(args['where'])
             experiments_query = Experiment.query.filter_by(**filters)

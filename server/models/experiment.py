@@ -4,6 +4,7 @@ import os
 from ..utils import silent_remove, sha1_string
 from .base import Base, BaseSchema
 from marshmallow import fields
+from sqlalchemy.dialects.postgresql import JSON
 
 
 # Define Experiment model
@@ -13,14 +14,12 @@ class Experiment(Base):
 
     # Attributes
     user_id = db.Column(db.Integer, db.ForeignKey('users.id'))
+    sha = db.Column(db.String(40), nullable=True, default='')
     exp_type = db.Column(db.String(255))
     name = db.Column(db.String(255))
-    date = db.Column(db.String(255)) #TODO use Date type here
-    experimenter = db.Column(db.String(255))
-    species = db.Column(db.String(255))
-    tissue = db.Column(db.String(255))
-    information = db.Column(db.Text)
-    sha = db.Column(db.String(40), nullable=True, default='')
+    date = db.Column(db.String(255))
+    description = db.Column(db.Text)
+    custom_fields = db.Column(JSON)
 
     # one-to-many relationship to ExperimentFile
     # one experiments can contain many files, one file belongs only to one experiment
@@ -38,15 +37,13 @@ class Experiment(Base):
                                 lazy='select', cascade="all, delete-orphan")
 
     # constructor
-    def __init__(self, user_id, exp_type, name, date, experimenter, species, tissue, information):
+    def __init__(self, user_id, exp_type, name, date, description, custom_fields):
         self.user_id = user_id
         self.exp_type = exp_type
         self.name = name
         self.date = date
-        self.experimenter = experimenter
-        self.species = species
-        self.tissue = tissue
-        self.information = information
+        self.description = description
+        self.custom_fields = custom_fields
 
     def __repr__(self):
         return '<Experiment {}>'.format(self.id)
@@ -54,17 +51,12 @@ class Experiment(Base):
 
 # Marshmallow schema for experiments
 class ExperimentSchema(BaseSchema):
-    user_id = fields.Int()
+    user_id = fields.Int(dump_only=True)
     name = fields.Str()
     exp_type = fields.Str()
     date = fields.Str()
-    experimenter = fields.Str()
-    species = fields.Str()
-    tissue = fields.Str()
-    information = fields.Str()
-    sha = fields.Str()
-    # files = fields.Nested('ExperimentFileSchema', only='id', many=True)
-    # analyses = fields.Nested('AnalysisSchema', only='id', many=True)
+    description = fields.Str()
+    custom_fields = fields.Dict()
 
     class Meta:
         strict = True
