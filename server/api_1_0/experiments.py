@@ -37,7 +37,9 @@ class ExperimentListController(Resource):
         'merge': fields.Bool(location='query', missing=False),
         'q': fields.Str(location='query', missing=None),
         'page': fields.Int(location='query', missing=1),
-        'per_page': fields.Int(location='query', missing=None)
+        'per_page': fields.Int(location='query', missing=None),
+        'sort_by': fields.Str(location='query', missing=None),
+        'order': fields.Str(location='query', missing=None)
     })
     def get(self, args):
         if args['q']:
@@ -63,6 +65,9 @@ class ExperimentListController(Resource):
             experiments_query = create_projection(experiments_query, projection)
         if args['merge']:
             experiments_query = experiments_query.distinct()
+        if args['sort_by'] and args['order']:
+            sort = "{} {}".format(args['sort_by'], args['order'])
+            experiments_query = experiments_query.order_by(sort)
 
         # create pagination
         page = args['page']
@@ -287,8 +292,13 @@ class ExperimentFileListController(Resource):
 
     @use_args({
         # access querystring arguments to filter files by is_upload
-        'is_upload': fields.Bool(location='querystring', missing=None),
-        'page': fields.Int(location='querystring', missing=1),
+        'is_upload': fields.Bool(location='query', missing=None),
+        'page': fields.Int(location='query', missing=1),
+        'per_page': fields.Int(location='query', missing=None),
+        'projection': fields.Str(location='query', missing=None),
+        'merge': fields.Bool(location='query', missing=False),
+        'sort_by': fields.Str(location='query', missing=None),
+        'order': fields.Str(location='query', missing=None),
         'where': fields.Str(location='query', missing=None)
     })
     def get(self, args, experiment_id):
@@ -296,26 +306,34 @@ class ExperimentFileListController(Resource):
         page = args['page']
         # filtering
         filters = {}
-        if args['where'] is not None:
-            filters = json.loads(args['where'])
         filters['experiment_id'] = experiment_id
-        if args['is_upload'] is not None:
+        if args['is_upload']:
             filters['is_upload'] = args['is_upload']
+        if args['where']:
+            filters.update(json.loads(args['where']))
 
-        # use unpacking here for passing an arbitrary bunch of keyword arguments to filter_by
-        # http://stackoverflow.com/a/19506429
-        # http://docs.python.org/release/2.7/tutorial/controlflow.html#unpacking-argument-lists
-        pagination = ExperimentFile.query.filter_by(**filters).paginate(page, current_app.config.get('ITEMS_PER_PAGE'), False)
+        experiment_files_query = ExperimentFile.query.filter_by(**filters)
+
+        if args['projection']:
+            projection = json.loads(args['projection'])
+            experiment_files_query = create_projection(experiment_files_query, projection)
+        if args['merge']:
+            experiment_files_query = experiment_files_query.distinct()
+        if args['sort_by'] and args['order']:
+            sort = "{} {}".format(args['sort_by'], args['order'])
+            experiment_files_query = experiment_files_query.order_by(sort)
+
+        # create pagination
+        page = args['page']
+        per_page = args['per_page'] or current_app.config.get('ITEMS_PER_PAGE')
+        pagination = experiment_files_query.paginate(page, per_page, False)
+        # pagination headers
+        link_header = create_pagination_header(self, pagination, page, experiment_id=experiment_id)
+
+        # reponse body
         experiment_files = pagination.items
-        page_prev = None
-        if pagination.has_prev:
-            page_prev = api.url_for(self, experiment_id=experiment_id, page=page-1, _external=True)
-        page_next = None
-        if pagination.has_next:
-            page_next = api.url_for(self, experiment_id=experiment_id, page=page+1, _external=True)
-
         result = experiment_file_schema.dump(experiment_files, many=True).data
-        return result, 200
+        return result, 200, link_header
 
 
 class ExperimentFileController(Resource):

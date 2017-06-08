@@ -1,6 +1,6 @@
 from . import api
 
-def create_pagination_header(self, paginated_resource, page):
+def create_pagination_header(self, paginated_resource, page, **args):
     """
     Creates a Link item in the HTTP response header with information to sibling pages
 
@@ -9,23 +9,23 @@ def create_pagination_header(self, paginated_resource, page):
     """
     link_header = []
     # first page
-    page_first_url = api.url_for(self, page=1, _external=True)
+    page_first_url = api.url_for(self, page=1, **args, _external=True)
     page_first = "<{}>; rel=\"first\"".format(page_first_url)
     link_header.append(page_first)
     # last page
-    page_last_url = api.url_for(self, page=paginated_resource.pages, _external=True)
-    page_last = "<{}>; rel=\"first\"".format(page_last_url)
+    page_last_url = api.url_for(self, page=paginated_resource.pages, **args, _external=True)
+    page_last = "<{}>; rel=\"last\"".format(page_last_url)
     link_header.append(page_last)
     # previous page
     page_prev = None
     if paginated_resource.has_prev:
-        page_prev_url = api.url_for(self, page=page-1, _external=True)
+        page_prev_url = api.url_for(self, page=page-1, **args, _external=True)
         page_prev = "<{}>; rel=\"prev\"".format(page_prev_url)
         link_header.append(page_prev)
     # next page
     page_next = None
     if paginated_resource.has_next:
-        page_next_url = api.url_for(self, page=page+1, _external=True)
+        page_next_url = api.url_for(self, page=page+1, **args, _external=True)
         page_next = "<{}>; rel=\"next\"".format(page_next_url)
         link_header.append(page_next)
 
