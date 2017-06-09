@@ -17,10 +17,10 @@ def unauthorized():
 
 @auth.verify_password
 def verify_password(login_name, password):
-    if current_app.config.get('DEBUG') == True:
-        user = User.query.filter_by(username=login_name).first()
-        g.user = user
-        return True
+    # if current_app.config.get('DEBUG') == True:
+    #     user = User.query.filter_by(username=login_name).first()
+    #     g.user = user
+    #     return True
     # connect to LDAP server and bind known user
     con = ldap.initialize(current_app.config.get('LDAP_SERVER'), bytes_mode=False)
     con.simple_bind_s(current_app.config.get('LDAP_USERNAME'), current_app.config.get('LDAP_PASSWORD'))

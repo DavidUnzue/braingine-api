@@ -19,6 +19,7 @@ from sqlalchemy import or_
 # webargs for request parsing instead of flask restful's reqparse
 from webargs import fields
 from webargs.flaskparser import use_args
+from sqlalchemy.exc import SQLAlchemyError
 
 
 experiment_schema = ExperimentSchema()

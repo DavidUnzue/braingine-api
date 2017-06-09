@@ -19,6 +19,10 @@ class Experiment(Base):
     name = db.Column(db.String(255))
     date = db.Column(db.String(255))
     description = db.Column(db.Text)
+    experimenter = db.Column(db.String(255))
+    organism = db.Column(db.String(40))
+    age = db.Column(db.String(40))
+    gender = db.Column(db.String(40))
     custom_fields = db.Column(JSON)
 
     # one-to-many relationship to ExperimentFile
@@ -37,12 +41,16 @@ class Experiment(Base):
                                 lazy='select', cascade="all, delete-orphan")
 
     # constructor
-    def __init__(self, user_id, exp_type, name, date, description, custom_fields):
+    def __init__(self, user_id, exp_type, name, date, description, experimenter, organism, age, gender, custom_fields):
         self.user_id = user_id
         self.exp_type = exp_type
         self.name = name
         self.date = date
         self.description = description
+        self.experimenter = experimenter
+        self.organism = organism
+        self.age = age
+        self.gender = gender
         self.custom_fields = custom_fields
 
     def __repr__(self):
@@ -52,11 +60,15 @@ class Experiment(Base):
 # Marshmallow schema for experiments
 class ExperimentSchema(BaseSchema):
     user_id = fields.Int(dump_only=True)
-    name = fields.Str()
     exp_type = fields.Str()
-    date = fields.Str()
-    description = fields.Str()
-    custom_fields = fields.Dict()
+    name = fields.Str()
+    date = fields.Str(allow_none=True)
+    description = fields.Str(allow_none=True)
+    experimenter = fields.Str(allow_none=True)
+    organism = fields.Str()
+    age = fields.Str(allow_none=True)
+    gender = fields.Str(allow_none=True)
+    custom_fields = fields.Dict(allow_none=True)
 
     class Meta:
         strict = True
