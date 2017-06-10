@@ -60,7 +60,7 @@ class ProductionConfig(Config):
     DEBUG = False
     SQLALCHEMY_DATABASE_URI = 'postgresql:///braingine'
     LOGGING_LOCATION = '/var/log/braingine/braingine-api.log'
-    USE_X_SENDFILE = True
+    USE_X_SENDFILE = False
 
     @classmethod
     def init_app(cls, app):
