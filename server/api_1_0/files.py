@@ -4,6 +4,7 @@ import os
 from flask import abort, current_app
 from flask.ext.restful import Resource
 
+from .. import db
 from ..models.experiment import ExperimentFile, ExperimentFileSchema
 import json
 from . import api
@@ -72,8 +73,8 @@ class FileController(Resource):
         # else:
         #     abort(406, "The resource identified by the request is only capable of generating response entities which have content characteristics not acceptable according to the accept headers sent in the request.")
 
-    def delete(self, experiment_id, file_id):
-        experiment_file = ExperimentFile.query.filter_by(experiment_id=experiment_id, id=file_id).first()
+    def delete(self, file_id):
+        experiment_file = ExperimentFile.query.get(file_id)
         if not experiment_file:
             abort(404, "Experiment file {} doesn't exist".format(file_id))
         db.session.delete(experiment_file)
