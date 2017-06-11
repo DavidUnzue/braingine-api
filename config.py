@@ -37,7 +37,7 @@ class Config(object):
     PLOTS_STORAGE = '/storage/scic/Data/External/braingine/plots'
     PLOTS_FOLDER = './data/plots' # without trailing slash
     # These are the extension that we are accepting to be uploaded
-    ALLOWED_EXTENSIONS = set(['txt','bam','bed','fasta','fa', 'fastq', 'fq', 'bz2'])
+    ALLOWED_EXTENSIONS = set(['txt','bam','bed','fasta','fa', 'fastq', 'fq', 'bz2', 'bz', 'gz'])
     BIOINFO_MAGIC_FILE = './resources/magic/bioinformatics'
     # celery configuration
     CELERY_RESULT_BACKEND = 'redis://'
