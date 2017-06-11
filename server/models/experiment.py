@@ -2,7 +2,7 @@ from flask import current_app
 from .. import db
 import os
 from ..utils import silent_remove, sha1_string
-from .base import Base, BaseSchema
+from .base import Base, BaseSchema, same_as
 from marshmallow import fields
 from sqlalchemy.dialects.postgresql import JSON
 
@@ -105,6 +105,7 @@ class ExperimentFile(Base):
     # bigint(8 bytes storage size). Range: -9223372036854775808 to +9223372036854775807
     size_in_bytes = db.Column(db.BigInteger)
     name = db.Column(db.String(255), nullable=False, default='')
+    display_name = db.Column(db.String(255), default=same_as('name'))
     path = db.Column(db.String(255), nullable=False, default='')
     folder = db.Column(db.String(255), nullable=False, default='')
     # a file within a directory has the parent set to that directory's id
