@@ -65,8 +65,9 @@ class FileController(Resource):
             result = experiment_file_schema.dump(single_file).data
             return result, 200
         # otherwise send file contents
-        elif (args['accept'] == single_file.mime_type or args['accept'] == '*/*'):
+        # elif (args['accept'] == single_file.mime_type or args['accept'] == '*/*'):
+        else:
             return self.download_file(single_file, args['download'])
         # not acceptable content-type requested
-        else:
-            abort(406, "The resource identified by the request is only capable of generating response entities which have content characteristics not acceptable according to the accept headers sent in the request.")
+        # else:
+        #     abort(406, "The resource identified by the request is only capable of generating response entities which have content characteristics not acceptable according to the accept headers sent in the request.")
