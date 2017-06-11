@@ -8,7 +8,7 @@ class PipelineInput(Base):
 
     pipeline_id = db.Column(db.Integer, db.ForeignKey('pipelines.id', ondelete="CASCADE"))
     pipeline = db.relationship("Pipeline", back_populates="inputs")
-    name = db.Column(db.String(40))
+    name = db.Column(db.String(255))
     label = db.Column(db.String(255))
     help = db.Column(db.String(255))
     type = db.Column(db.String(40))
@@ -34,7 +34,7 @@ class PipelineOutput(Base):
 
     pipeline_id = db.Column(db.Integer, db.ForeignKey('pipelines.id', ondelete="CASCADE"))
     pipeline = db.relationship("Pipeline", back_populates="outputs")
-    name = db.Column(db.String(40))
+    name = db.Column(db.String(255))
     label = db.Column(db.String(255))
     type = db.Column(db.String(40))
     value = db.Column(db.String(255))
@@ -56,9 +56,9 @@ class PipelineOutputSchema(BaseSchema):
 class Pipeline(Base):
     __tablename__ = "pipelines"
 
-    uid = db.Column(db.String(40))
-    filename = db.Column(db.String(40))
-    name = db.Column(db.String(40))
+    uid = db.Column(db.String(255))
+    filename = db.Column(db.String(255))
+    name = db.Column(db.String(255))
     description = db.Column(db.Text())
     executor = db.Column(db.String(35))
     command = db.Column(db.Text())
