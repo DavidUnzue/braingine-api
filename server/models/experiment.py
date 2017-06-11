@@ -119,10 +119,11 @@ class ExperimentFile(Base):
     is_upload = db.Column(db.Boolean, nullable=False, default=False)
 
     # constructor
-    def __init__(self, experiment_id, size_in_bytes, name, path, folder, mime_type, file_type, is_upload=False, parent=None):
+    def __init__(self, experiment_id, size_in_bytes, name, path, folder, mime_type, file_type, is_upload=False, parent=None, display_name=None):
         self.experiment_id = experiment_id
         self.size_in_bytes = size_in_bytes
         self.name = name
+        self.display_name = display_name
         self.path = path
         self.folder = folder
         self.parent = parent
@@ -140,6 +141,7 @@ class ExperimentFileSchema(BaseSchema):
     # python integer type can store very large numbers, there is no other data type like bigint
     size_in_bytes = fields.Int(dump_only=True)
     name = fields.Str()
+    display_name = fields.Str()
     path = fields.Str(dump_only=True)
     folder = fields.Str(dump_only=True)
     parent = fields.Str(missing=None)
