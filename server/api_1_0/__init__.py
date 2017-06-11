@@ -11,7 +11,7 @@ from . import experiments, analyses, pipelines, visualizations, plots, tasks, st
 
 # general files resource
 api.add_resource(files.FileListController, '/files/')
-api.add_resource(files.FileController, '/files/<file_id>')
+api.add_resource(files.FileController, '/files/<int:file_id>')
 # experiment
 api.add_resource(experiments.ExperimentListController, '/experiments/')
 api.add_resource(experiments.ExperimentController, '/experiments/<int:experiment_id>')
