@@ -21,6 +21,7 @@ from webargs import fields
 from webargs.flaskparser import use_args
 
 analysis_schema = AnalysisSchema()
+pipeline_schema = PipelineSchema()
 
 
 class AnalysisListController(Resource):
@@ -46,7 +47,8 @@ class AnalysisListController(Resource):
         """
         with open(self.get_pipeline_definition_file(pipeline_uid)) as pipeline_definition_file:
             pipeline_definition = json.load(pipeline_definition_file)
-        return pipeline_definition
+            pipeline_definition_dict = pipeline_schema.load(pipeline_definition).data
+        return pipeline_definition_dict
 
     def store_pipeline(self, pipeline_uid):
         # serialize pipeline definition file

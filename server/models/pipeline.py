@@ -13,7 +13,7 @@ class PipelineInput(Base):
     help = db.Column(db.String(255))
     type = db.Column(db.String(40))
     multiple = db.Column(db.Boolean(), default=False)
-    format = db.Column(db.String(255), default='')
+    format = db.Column(db.String(255), default=None)
 
 
 class PipelineInputSchema(BaseSchema):
@@ -23,7 +23,7 @@ class PipelineInputSchema(BaseSchema):
     help = fields.Str()
     type = fields.Str()
     multiple = fields.Bool()
-    format = fields.Str()
+    format = fields.List(fields.Str(), missing=[], default=None)
 
     class Meta:
         strict = True
