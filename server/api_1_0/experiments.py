@@ -82,7 +82,11 @@ class ExperimentListController(Resource):
 
     @use_args(experiment_schema)
     def post(self, args):
-        # setup  folders for project data
+        # abort if experiment with same name already exists
+        if(Experiment.query.filter_by(name=args['name'])):
+            abort(404, "Error: an experiment already exists with the name \"{}\"".format(args['name']))
+
+        # setup folders for project data
         project_folder = os.path.join(current_app.config.get('SYMLINK_TO_DATA_STORAGE'), sha1_string(args['name']))
         uploads_folder = os.path.join(project_folder, current_app.config.get('UPLOADS_FOLDER'))
         analyses_folder = os.path.join(project_folder, current_app.config.get('ANALYSES_FOLDER'))
@@ -226,7 +230,7 @@ class ExperimentFileListController(Resource):
                     # if so, create experiment
                     if end_bytes >= (total_bytes - 1):
                         # initialize file handle for magic file type detection
-                        fh_magic = magic.Magic(magic_file=current_app.config.get('BIOINFO_MAGIC_FILE'))
+                        fh_magic = magic.Magic(magic_file=current_app.config.get('BIOINFO_MAGIC_FILE'), uncompress=True)
                         # get bioinformatic file type using magic on the first chunk of the file
                         file_type = fh_magic.from_buffer(file_buffer)
                         experimentFile = ExperimentFile(experiment_id=experiment_id, size_in_bytes=total_bytes, name=file_name, path=file_path, folder=experiment_folder, mime_type=mimetype, file_type=file_type, is_upload=args['is_upload'])
@@ -245,7 +249,7 @@ class ExperimentFileListController(Resource):
                     newFile.stream.seek(0)
 
                     # initialize file handle for magic file type detection
-                    fh_magic = magic.Magic(magic_file=current_app.config.get('BIOINFO_MAGIC_FILE'))
+                    fh_magic = magic.Magic(magic_file=current_app.config.get('BIOINFO_MAGIC_FILE'), uncompress=True)
                     # get bioinformatic file type using magic on the first chunk of the file
                     file_type = fh_magic.from_buffer(file_buffer)
 
@@ -270,7 +274,7 @@ class ExperimentFileListController(Resource):
                 shutil.move(os.path.join(current_app.config.get('SYMLINK_TO_DATA_STORAGE_PREUPLOADS'), filename_in_storage), write_file_to)
 
                 # initialize file handle for magic file type detection
-                fh_magic = magic.Magic(magic_file=current_app.config.get('BIOINFO_MAGIC_FILE'))
+                fh_magic = magic.Magic(magic_file=current_app.config.get('BIOINFO_MAGIC_FILE'), uncompress=True)
                 # get bioinformatic file type using magic
                 file_type = fh_magic.from_file(file_path_internal)
                 # get mimetype of file using magic
