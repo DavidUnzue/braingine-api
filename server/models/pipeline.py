@@ -15,6 +15,13 @@ class PipelineInput(Base):
     multiple = db.Column(db.Boolean(), default=False)
     format = db.Column(db.String(255), default=None)
 
+class PipelineInputOptionSchema(BaseSchema):
+    value = fields.Str()
+    label = fields.Str()
+
+    class Meta:
+        strict = True
+
 
 class PipelineInputSchema(BaseSchema):
     pipeline_id = fields.Int(dump_only=True)
@@ -24,6 +31,7 @@ class PipelineInputSchema(BaseSchema):
     type = fields.Str()
     multiple = fields.Bool()
     format = fields.List(fields.Str(), missing=[], default=None)
+    options = fields.Nested(PipelineInputOptionSchema, many=True)
 
     class Meta:
         strict = True

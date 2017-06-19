@@ -12,14 +12,17 @@ pipeline_schema = PipelineSchema()
 
 class PipelineListController(Resource):
     def get(self):
+        import glob
         from os import listdir
         from os.path import isfile, join
-        # get json files (pipeline definition files) from pipelines folder
-        pipeline_files = [f for f in listdir(current_app.config.get('PIPELINES_FOLDER')) if isfile(join(current_app.config.get('PIPELINES_FOLDER'), f)) and f.endswith(".json")]
+
+        pipelines_folder = current_app.config.get('PIPELINES_FOLDER')
+        # get json files (pipeline definition files) from pipelines folders
+        pipeline_files = glob.glob(join(pipelines_folder, '**/*.json'), recursive=True)
 
         pipeline_definition_list = list()
         for pipeline_file in pipeline_files:
-            with open('{}/{}'.format(current_app.config.get('PIPELINES_FOLDER'), pipeline_file)) as pipeline_definition_file:
+            with open(pipeline_file) as pipeline_definition_file:
                 pipeline_definition = json.load(pipeline_definition_file)
                 pipeline_definition_list.append(pipeline_definition)
 
@@ -30,7 +33,9 @@ class PipelineListController(Resource):
 class PipelineController(Resource):
     def get(self, pipeline_filename):
 
-        with open('{}/{}.json'.format(current_app.config.get('PIPELINES_FOLDER'), pipeline_filename)) as pipeline_definition_file:
+        pipelines_folder = current_app.config.get('PIPELINES_FOLDER')
+
+        with open('{}/{}/{}.json'.format(pipelines_folder, pipeline_filename, pipeline_filename)) as pipeline_definition_file:
             pipeline_definition = json.load(pipeline_definition_file)
 
         result = pipeline_schema.dump(pipeline_definition).data
