@@ -82,12 +82,14 @@ class ExperimentListController(Resource):
 
     @use_args(experiment_schema)
     def post(self, args):
+        experiment_name = args['name']
         # abort if experiment with same name already exists
-        if(Experiment.query.filter_by(name=args['name'])):
-            abort(404, "Error: an experiment already exists with the name \"{}\"".format(args['name']))
+        it_exists = Experiment.query.filter_by(name=experiment_name).first()
+        if(it_exists):
+            abort(404, "Error: an experiment already exists with the name \"{}\"".format(experiment_name))
 
         # setup folders for project data
-        project_folder = os.path.join(current_app.config.get('SYMLINK_TO_DATA_STORAGE'), sha1_string(args['name']))
+        project_folder = os.path.join(current_app.config.get('SYMLINK_TO_DATA_STORAGE'), sha1_string(experiment_name))
         uploads_folder = os.path.join(project_folder, current_app.config.get('UPLOADS_FOLDER'))
         analyses_folder = os.path.join(project_folder, current_app.config.get('ANALYSES_FOLDER'))
 
@@ -96,7 +98,7 @@ class ExperimentListController(Resource):
             db.session.add(experiment)
             db.session.commit()
         except SQLAlchemyError:
-            abort(404, "Error creating experiment \"{}\"".format(args['name']))
+            abort(404, "Error creating experiment \"{}\"".format(experiment_name))
 
         try:
             create_folder(project_folder)
