@@ -115,11 +115,12 @@ class ExperimentFile(Base):
     # for a folder, use mime type "application/vnd.mpi-apps.folder"
     # a folder will essentially be a file with that mime type
     mime_type = db.Column(db.String(255))
-    file_type = db.Column(db.String(255))
+    file_format = db.Column(db.String(35))
+    file_format_full = db.Column(db.String(255))
     is_upload = db.Column(db.Boolean, nullable=False, default=False)
 
     # constructor
-    def __init__(self, experiment_id, size_in_bytes, name, path, folder, mime_type, file_type, is_upload=False, parent=None, display_name=None):
+    def __init__(self, experiment_id, size_in_bytes, name, path, folder, mime_type, file_format_full, is_upload=False, parent=None, display_name=None):
         self.experiment_id = experiment_id
         self.size_in_bytes = size_in_bytes
         self.name = name
@@ -128,11 +129,23 @@ class ExperimentFile(Base):
         self.folder = folder
         self.parent = parent
         self.mime_type = mime_type
-        self.file_type = file_type
+        self.file_format_full = file_format_full
+        self.file_format = self.get_file_format(self.file_format_full)
         self.is_upload = is_upload
 
     def __repr__(self):
         return '<Experiment file {}>'.format(self.id)
+
+    def get_file_format(self, file_format_full):
+        """
+        Get the short file format name using the full file format returned by magic
+        """
+        import json, re
+        with open(current_app.config.get('FILE_FORMATS')) as formats_file:
+            matching = json.load(formats_file)
+        for regex, file_format in matching.items():
+            if (re.search(regex, file_format_full)):
+                return file_format
 
 
 # Marshmallow schema for experiment file
@@ -147,7 +160,8 @@ class ExperimentFileSchema(BaseSchema):
     parent = fields.Str(missing=None)
     sha = fields.Str()
     mime_type = fields.Str(dump_only=True)
-    file_type = fields.Str()
+    file_format = fields.Str()
+    file_format_full = fields.Str()
     is_upload = fields.Bool()
 
     class Meta:

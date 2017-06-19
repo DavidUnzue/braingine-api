@@ -224,7 +224,7 @@ class ExperimentFileListController(Resource):
 
                     # get bioinformatic file type using magic on the first chunk of the file
                     # if start_bytes == 0:
-                    #     file_type = fh_magic.from_buffer(file_buffer)
+                    #     file_format_full = fh_magic.from_buffer(file_buffer)
 
                     # check if these are the last bytes
                     # if so, create experiment
@@ -232,8 +232,8 @@ class ExperimentFileListController(Resource):
                         # initialize file handle for magic file type detection
                         fh_magic = magic.Magic(magic_file=current_app.config.get('BIOINFO_MAGIC_FILE'), uncompress=True)
                         # get bioinformatic file type using magic on the first chunk of the file
-                        file_type = fh_magic.from_buffer(file_buffer)
-                        experimentFile = ExperimentFile(experiment_id=experiment_id, size_in_bytes=total_bytes, name=file_name, path=file_path, folder=experiment_folder, mime_type=mimetype, file_type=file_type, is_upload=args['is_upload'])
+                        file_format_full = fh_magic.from_buffer(file_buffer)
+                        experimentFile = ExperimentFile(experiment_id=experiment_id, size_in_bytes=total_bytes, name=file_name, path=file_path, folder=experiment_folder, mime_type=mimetype, file_format_full=file_format_full, is_upload=args['is_upload'])
                         db.session.add(experimentFile)
                         db.session.commit()
                         result = experiment_file_schema.dump(experimentFile, many=False).data
@@ -251,14 +251,14 @@ class ExperimentFileListController(Resource):
                     # initialize file handle for magic file type detection
                     fh_magic = magic.Magic(magic_file=current_app.config.get('BIOINFO_MAGIC_FILE'), uncompress=True)
                     # get bioinformatic file type using magic on the first chunk of the file
-                    file_type = fh_magic.from_buffer(file_buffer)
+                    file_format_full = fh_magic.from_buffer(file_buffer)
 
                     write_file(write_file_to, file_name, newFile)
 
                     # get file size from request's header content-length
                     file_size = args['content-length']
 
-                    experimentFile = ExperimentFile(experiment_id=experiment_id, size_in_bytes=file_size, name=file_name, path=file_path, folder=experiment_folder, mime_type=mimetype, file_type=file_type, is_upload=args['is_upload'])
+                    experimentFile = ExperimentFile(experiment_id=experiment_id, size_in_bytes=file_size, name=file_name, path=file_path, folder=experiment_folder, mime_type=mimetype, file_format_full=file_format_full, is_upload=args['is_upload'])
                     db.session.add(experimentFile)
                     db.session.commit()
                     result = experiment_file_schema.dump(experimentFile, many=False).data
@@ -276,14 +276,14 @@ class ExperimentFileListController(Resource):
                 # initialize file handle for magic file type detection
                 fh_magic = magic.Magic(magic_file=current_app.config.get('BIOINFO_MAGIC_FILE'), uncompress=True)
                 # get bioinformatic file type using magic
-                file_type = fh_magic.from_file(file_path_internal)
+                file_format_full = fh_magic.from_file(file_path_internal)
                 # get mimetype of file using magic
                 mimetype = magic.from_file(file_path_internal, mime=True)
                 # get file size
                 file_stats = os.stat(file_path_internal)
                 file_size = file_stats.st_size
 
-                experimentFile = ExperimentFile(experiment_id=experiment_id, size_in_bytes=file_size, name=file_name, path=file_path, folder=experiment_folder, mime_type=mimetype, file_type=file_type, is_upload=args['is_upload'])
+                experimentFile = ExperimentFile(experiment_id=experiment_id, size_in_bytes=file_size, name=file_name, path=file_path, folder=experiment_folder, mime_type=mimetype, file_format_full=file_format_full, is_upload=args['is_upload'])
                 db.session.add(experimentFile)
                 db.session.commit()
                 result = experiment_file_schema.dump(experimentFile, many=False).data

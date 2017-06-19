@@ -134,13 +134,13 @@ class AnalysisTask(BaseTask):
                 fh_magic = magic.Magic(magic_file=current_app.config.get('BIOINFO_MAGIC_FILE'))
 
                 # get bioinformatic file type using magic
-                file_type = fh_magic.from_file(file_path_internal)
+                file_format_full = fh_magic.from_file(file_path_internal)
                 mime_type = magic.from_file(file_path_internal, mime=True)
 
                 file_size = os.path.getsize(file_path_internal)
 
                 # create file object and add to DB
-                new_file = ExperimentFile(experiment_id=experiment.id, size_in_bytes=file_size, name=filename, path=file_path, mime_type=mime_type, file_type=file_type, folder=experiment.sha)
+                new_file = ExperimentFile(experiment_id=experiment.id, size_in_bytes=file_size, name=filename, path=file_path, mime_type=mime_type, file_format_full=file_format_full, folder=experiment.sha)
                 db.session.add(new_file)
 
                 # link file to analysis output
@@ -215,11 +215,11 @@ class VisualizationTask(BaseTask):
                 fh_magic = magic.Magic(magic_file=current_app.config.get('BIOINFO_MAGIC_FILE'))
 
                 # get bioinformatic file type using magic
-                file_type = fh_magic.from_file(file_path_internal)
+                file_format_full = fh_magic.from_file(file_path_internal)
                 mime_type = magic.from_file(file_path_internal, mime=True)
 
                 # create file object and add to DB
-                new_file = ExperimentFile(experiment_id=experiment.id, size_in_bytes=file_size, name=filename, path=file_path, mime_type=mime_type, file_type=file_type, folder=experiment.sha)
+                new_file = ExperimentFile(experiment_id=experiment.id, size_in_bytes=file_size, name=filename, path=file_path, mime_type=mime_type, file_format_full=file_format_full, folder=experiment.sha)
                 db.session.add(new_file)
                 db.session.flush()
 

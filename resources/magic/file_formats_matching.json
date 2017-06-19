@@ -1,0 +1,8 @@
+{
+  "^Fastq": "fastq",
+  "^SAMtools BAM": "bam",
+  "^SAMtools SAM": "sam",
+  "^SAMtools BAI": "bai",
+  "^ASCII text": "text",
+  "^Blocked GNU Zip Format": "gzip"
+}

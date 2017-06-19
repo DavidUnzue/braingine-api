@@ -39,6 +39,7 @@ class Config(object):
     # These are the extension that we are accepting to be uploaded
     ALLOWED_EXTENSIONS = set(['txt','bam','bed','fasta','fa', 'fastq', 'fq', 'bz2', 'bz', 'gz'])
     BIOINFO_MAGIC_FILE = './resources/magic/bioinformatics'
+    FILE_FORMATS = './resources/magic/file_formats_matching.json'
     # celery configuration
     CELERY_RESULT_BACKEND = 'redis://'
     CELERY_BROKER_URL = 'redis://localhost:6379/0'
