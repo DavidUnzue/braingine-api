@@ -130,23 +130,26 @@ class ExperimentFile(Base):
         self.parent = parent
         self.mime_type = mime_type
         self.file_format_full = file_format_full
-        self.file_format = self.get_file_format(self.file_format_full)
+        self.file_format = self.get_file_format(self.file_format_full, self.name)
         self.is_upload = is_upload
 
     def __repr__(self):
         return '<Experiment file {}>'.format(self.id)
 
-    def get_file_format(self, file_format_full):
+    def get_file_format(self, file_format_full, filename):
         """
         Get the short file format name using the full file format returned by magic
         """
         import json, re
         with open(current_app.config.get('FILE_FORMATS')) as formats_file:
             matching = json.load(formats_file)
+        # try using the full file format detected by magic
         for regex, file_format in matching.items():
             if (re.search(regex, file_format_full)):
                 return file_format
-        return 'data' # default file format
+        # fall back to file extension
+        file_extension = os.path.splitext(filename)[1][1:]
+        return file_extension
 
 
 # Marshmallow schema for experiment file

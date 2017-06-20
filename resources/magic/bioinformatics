@@ -117,28 +117,28 @@
 # FASTQ
 # used by MAQ (http://maq.sourceforge.net/fastq.shtml)
 ###############################################################################
-# XXX Broken?
-# @<seqname>
-#0	regex	=^@[A-Za-z0-9_.:-]+\?\n
-# <seq>
-#>&1	regex	=^[A-Za-z\n.~]++
-# +[<seqname>]
-#>>&1	regex	=^[A-Za-z0-9_.:-]*\?\n
-# <qual>
-#>>>&1	regex	=^[!-~\n]+\n		FASTQ
+0	regex	@.*\n[ATGCNatgcn]*\n+.*\n[!-I]*\n	Fastq (Sanger)
+!:mime	text/fastq
+0	regex	@.*\n[ATGCNatgcn]*\n+.*\n[;-i]*\n	Fastq (Solexa)
+!:mime	text/fastq
+0	regex	@.*\n[ATGCNatgcn]*\n+.*\n[!-J]*\n	Fastq (Illumina 1.8)
+!:mime	text/fastq
+0	regex	@.*\n[ATGCNatgcn]*\n+.*\n[@-i]*\n	Fastq (Illumina 1.3)
+!:mime	text/fastq
 
 ###############################################################################
 # FASTA
 # used by FASTA (http://fasta.bioch.virginia.edu/fasta_www2/fasta_guide.pdf)
 ###############################################################################
-#0	byte	0x3e
-# q>0	regex	=^[>][!-~\t\ ]+$
+0	byte	0x3e
+>0	regex	=^[>][!-~\t\ ]+$
 # Amino Acid codes: [A-IK-Z*-]+
-#>>1	regex	!=[!-'Jj;:=?@^`|~\\]		FASTA
+>>1	regex	!=[!-'Jj;:=?@^`|~\\]		FASTA
 # IUPAC codes/gaps: [ACGTURYKMSWBDHVNX-]+
 # not in IUPAC codes/gaps: [EFIJLOPQZ]
-#>>>1	regex	!=[EFIJLOPQZefijlopqz]		\b, with IUPAC nucleotide codes
-#>>>1	regex	=^[EFIJLOPQZefijlopqz]+$	\b, with Amino Acid codes
+>>>1	regex	!=[EFIJLOPQZefijlopqz]		\b, with IUPAC nucleotide codes
+>>>1	regex	=^[EFIJLOPQZefijlopqz]+$	\b, with Amino Acid codes
+!:mime text/fasta
 
 ###############################################################################
 # SAM (Sequence Alignment/Map format)
