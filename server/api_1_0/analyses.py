@@ -39,7 +39,7 @@ class AnalysisListController(Resource):
         """
         Build filename for given pipeline
         """
-        return '{}/{}.json'.format(current_app.config.get('PIPELINES_FOLDER'), pipeline_uid)
+        return '{}/{}/{}.json'.format(current_app.config.get('PIPELINES_FOLDER'), pipeline_uid, pipeline_uid)
 
     def load_pipeline_definition(self, pipeline_uid):
         """
