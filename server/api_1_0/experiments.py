@@ -15,7 +15,7 @@ from .api_utils import create_pagination_header, create_projection
 # http://stackoverflow.com/a/30399108
 from . import api
 # allow use of or syntax for sql queries
-from sqlalchemy import or_
+from sqlalchemy import or_, text
 # webargs for request parsing instead of flask restful's reqparse
 from webargs import fields
 from webargs.flaskparser import use_args
@@ -325,7 +325,7 @@ class ExperimentFileListController(Resource):
             experiment_files_query = experiment_files_query.distinct()
         if args['sort_by'] and args['order']:
             sort = "{} {}".format(args['sort_by'], args['order'])
-            experiment_files_query = experiment_files_query.order_by(sort)
+            experiment_files_query = experiment_files_query.order_by(text(sort))
 
         # create pagination
         page = args['page']
