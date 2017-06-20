@@ -23,7 +23,7 @@ api.add_resource(analyses.AnalysisListController, '/experiments/<int:experiment_
 api.add_resource(analyses.AnalysisController, '/experiments/<int:experiment_id>/analyses/<int:analysis_id>')
 # pipeline
 api.add_resource(pipelines.PipelineListController, '/pipelines/')
-api.add_resource(pipelines.PipelineController, '/pipelines/<pipeline_filename>')
+api.add_resource(pipelines.PipelineController, '/pipelines/<pipeline_uid>')
 # visualization
 api.add_resource(visualizations.VisualizationListController, '/experiments/<int:experiment_id>/visualizations/')
 api.add_resource(visualizations.VisualizationController, '/experiments/<int:experiment_id>/visualizations/<int:visualization_id>')

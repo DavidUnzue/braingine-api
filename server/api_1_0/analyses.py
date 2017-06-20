@@ -39,7 +39,8 @@ class AnalysisListController(Resource):
         """
         Build filename for given pipeline
         """
-        return '{}/{}/{}.json'.format(current_app.config.get('PIPELINES_FOLDER'), pipeline_uid, pipeline_uid)
+        pipeine_definition_file_path = os.path.join(current_app.config.get('PIPELINES_FOLDER'), pipeline_uid, '{}.json'.format(pipeline_uid))
+        return pipeine_definition_file_path
 
     def load_pipeline_definition(self, pipeline_uid):
         """
@@ -193,7 +194,7 @@ class AnalysisListController(Resource):
         pipeline_command = Template(pipeline.command)
         pipeline_command_parameters = pipeline_command.substitute(input_parameters, **pipeline_output_files)
 
-        pipeline_file_path = os.path.join(current_app.config.get('PIPELINES_STORAGE'), pipeline.filename)
+        pipeline_file_path = os.path.join(current_app.config.get('PIPELINES_STORAGE'), pipeline.uid, pipeline.filename)
         final_pipeline_command = '{} {} {}'.format(pipeline.executor, pipeline_file_path, pipeline_command_parameters)
 
         # remote command should first change directory to experiment folder, then execute the pipeline command

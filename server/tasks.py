@@ -131,7 +131,7 @@ class AnalysisTask(BaseTask):
                 file_path_internal = os.path.join(root, filename)
 
                 # initialize file handle for magic file type detection
-                fh_magic = magic.Magic(magic_file=current_app.config.get('BIOINFO_MAGIC_FILE'))
+                fh_magic = magic.Magic(magic_file=current_app.config.get('BIOINFO_MAGIC_FILE'), uncompress=True)
 
                 # get bioinformatic file type using magic
                 file_format_full = fh_magic.from_file(file_path_internal)

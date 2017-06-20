@@ -5,7 +5,7 @@ from flask import current_app
 from flask.ext.restful import Resource
 
 from server.models.pipeline import PipelineSchema
-import json
+import os, json
 
 
 pipeline_schema = PipelineSchema()
@@ -31,11 +31,11 @@ class PipelineListController(Resource):
 
 
 class PipelineController(Resource):
-    def get(self, pipeline_filename):
+    def get(self, pipeline_uid):
 
-        pipelines_folder = current_app.config.get('PIPELINES_FOLDER')
+        pipeine_definition_file_path = os.path.join(current_app.config.get('PIPELINES_FOLDER'), pipeline_uid, '{}.json'.format(pipeline_uid))
 
-        with open('{}/{}/{}.json'.format(pipelines_folder, pipeline_filename, pipeline_filename)) as pipeline_definition_file:
+        with open(pipeine_definition_file_path) as pipeline_definition_file:
             pipeline_definition = json.load(pipeline_definition_file)
 
         result = pipeline_schema.dump(pipeline_definition).data
