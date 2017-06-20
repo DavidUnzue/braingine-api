@@ -146,6 +146,7 @@ class ExperimentFile(Base):
         for regex, file_format in matching.items():
             if (re.search(regex, file_format_full)):
                 return file_format
+        return 'data' # default file format
 
 
 # Marshmallow schema for experiment file
