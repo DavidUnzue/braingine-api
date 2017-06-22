@@ -17,6 +17,8 @@ class Config(object):
     #MAX_CONTENT_LENGTH = 8 * 1024 * 1024 # 8 MB
     DATA_ROOT_EXTERNAL = '/storage/scic/Data/External/braingine'
     DATA_ROOT_INTERNAL = './data'
+    ILLUMINA_ROOT_EXTERNAL = '/storage/scic/illuminanextseq'
+    ILLUMINA_ROOT_INTERNAL = './illumina'
     EXPERIMENTS_FOLDER = 'projects'
     SYMLINK_TO_DATA_STORAGE = './data/projects'
     # This is the path to the directory in the storage server where files will be uploaded to

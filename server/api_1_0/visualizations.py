@@ -33,7 +33,8 @@ class VisualizationListController(Resource):
         """
         Build filename for given plot
         """
-        return '{}/{}.json'.format(current_app.config.get('PLOTS_FOLDER'), plot_uid)
+        plot_definition_file_path = os.path.join(current_app.config.get('PLOTS_FOLDER'), plot_uid, '{}.json'.format(plot_uid))
+        return plot_definition_file_path
 
     def _load_plot_definition(self, plot_uid):
         """
