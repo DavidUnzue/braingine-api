@@ -19,6 +19,8 @@ class Config(object):
     DATA_ROOT_INTERNAL = './data'
     ILLUMINA_ROOT_EXTERNAL = '/storage/scic/illuminanextseq'
     ILLUMINA_ROOT_INTERNAL = './illumina'
+    ILLUMINA_DATA_FOLDER = 'raw_data'
+    ILLUMINA_FASTQ_FOLDER = 'fastq'
     EXPERIMENTS_FOLDER = 'projects'
     SYMLINK_TO_DATA_STORAGE = './data/projects'
     # This is the path to the directory in the storage server where files will be uploaded to

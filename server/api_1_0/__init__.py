@@ -34,8 +34,10 @@ api.add_resource(plots.PlotController, '/plots/<plot_uid>')
 api.add_resource(tasks.TaskStatusController, '/taskstatus/<task_id>')
 # storage files from preuploads folder
 api.add_resource(storage_files.StorageFileListController, '/storage_files/')
-# illumina folders
-api.add_resource(illumina_files.IlluminaFileListController, '/illumina_folders/')
+# illumina folders and files
+api.add_resource(illumina_files.IlluminaFolderListController, '/illumina_folders/')
+api.add_resource(illumina_files.IlluminaFileListController, '/illumina_folders/<folder_uid>/files/')
+
 # user
 api.add_resource(users.UserListController, '/users/')
 api.add_resource(users.UserController, '/users/<user_id>')
