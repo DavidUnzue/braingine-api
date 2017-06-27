@@ -3,6 +3,6 @@
   "^SAMtools BAM": "bam",
   "^SAMtools SAM": "sam",
   "^SAMtools BAI": "bai",
-  "^ASCII text": "text",
+  "^ASCII text": "txt",
   "^Blocked GNU Zip Format": "gzip"
 }
