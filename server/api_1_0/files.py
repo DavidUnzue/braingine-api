@@ -15,6 +15,8 @@ experiment_file_schema = ExperimentFileSchema()
 
 
 class FileListController(Resource):
+    decorators = [auth.login_required]
+
     @use_args({
         'page': fields.Int(missing=1)
     })
@@ -41,13 +43,15 @@ class FileListController(Resource):
         'experiment_id': fields.Str(load_from='X-Experiment-Id', location='headers')
     })
     def post(self, args):
-        from .upload import file_upload
+        from .api_utils import file_upload
         experimentFile = file_upload(args['temp_filename'], args['filename'], args['experiment_id'])
 
         result = experiment_file_schema.dump(experimentFile, many=False).data
         return result, 201
 
 class FileController(Resource):
+    decorators = [auth.login_required]
+    
     def request_wants_json(self):
         from flask import request
         best = request.accept_mimetypes \
