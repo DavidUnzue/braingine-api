@@ -35,6 +35,17 @@ class FileListController(Resource):
 
         return result, 200
 
+    @use_args({
+        'temp_filename': fields.Str(load_from='X-Temp-File-Name', location='headers'),
+        'filename': fields.Str(load_from='X-File-Name', location='headers'),
+        'experiment_id': fields.Str(load_from='X-Experiment-Id', location='headers')
+    })
+    def post(self, args):
+        from .upload import file_upload
+        experimentFile = file_upload(args['temp_filename'], args['filename'], args['experiment_id'])
+
+        result = experiment_file_schema.dump(experimentFile, many=False).data
+        return result, 201
 
 class FileController(Resource):
     def request_wants_json(self):
