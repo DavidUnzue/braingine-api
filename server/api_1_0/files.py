@@ -1,12 +1,12 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
-import os
+import os, json
 from flask import abort, current_app
 from flask.ext.restful import Resource
 
 from .. import db
 from ..models.experiment import ExperimentFile, ExperimentFileSchema
-import json
+from .auth import auth
 from . import api
 from webargs import fields
 from webargs.flaskparser import use_args
@@ -51,7 +51,7 @@ class FileListController(Resource):
 
 class FileController(Resource):
     decorators = [auth.login_required]
-    
+
     def request_wants_json(self):
         from flask import request
         best = request.accept_mimetypes \
@@ -71,7 +71,6 @@ class FileController(Resource):
         'download': fields.Boolean(location='querystring', missing=False) # force download or not
     })
     def get(self, args, file_id):
-        print(args['accept'])
         single_file = ExperimentFile.query.get(file_id)
         if not single_file:
             abort(404, "File {} doesn't exist".format(file_id))
