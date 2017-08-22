@@ -1,15 +1,16 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
-import os, json
+import os, json, werkzeug, shutil
 from flask import abort, current_app
 from flask.ext.restful import Resource
 
 from .. import db
-from ..models.experiment import ExperimentFile, ExperimentFileSchema
+from ..models.experiment import Experiment, ExperimentFile, ExperimentFileSchema
 from .auth import auth
 from . import api
 from webargs import fields
 from webargs.flaskparser import use_args
+from ..utils import sha1_string
 
 experiment_file_schema = ExperimentFileSchema()
 
@@ -40,14 +41,58 @@ class FileListController(Resource):
     @use_args({
         'temp_filename': fields.Str(load_from='X-Temp-File-Name', location='headers'),
         'filename': fields.Str(load_from='X-File-Name', location='headers'),
-        'experiment_id': fields.Str(load_from='X-Experiment-Id', location='headers')
+        'experiment_id': fields.Str(load_from='X-Experiment-Id', location='headers'),
+        'content-range': fields.Str(load_from='Content-Range', location='headers', missing=None),
+        'content-length': fields.Int(load_from='Content-Length', location='headers', missing=0),
     })
     def post(self, args):
-        from .api_utils import file_upload
-        experimentFile = file_upload(args['temp_filename'], args['filename'], args['experiment_id'])
+        from .api_utils import store_file_upload
 
-        result = experiment_file_schema.dump(experimentFile, many=False).data
-        return result, 201
+        # Make the filename safe, remove unsupported chars
+        filename = werkzeug.secure_filename(args['filename'])
+        # get experiment
+        experiment = Experiment.query.get(args['experiment_id'])
+        experiment_folder = sha1_string(experiment.name)
+
+        input_file_path = os.path.join(current_app.config.get('SYMLINK_TO_DATA_STORAGE_PREUPLOADS'), args['temp_filename'])
+
+        output_file_path = os.path.join(current_app.config.get('DATA_ROOT_INTERNAL'), current_app.config.get('EXPERIMENTS_FOLDER'), experiment_folder, current_app.config.get('UPLOADS_FOLDER'), filename)
+
+        # handle chunked file upload
+        if args['content-range']:
+
+            # extract byte numbers from Content-Range header string
+            content_range = args['content-range']
+            range_str = content_range.split(' ')[1]
+            start_bytes = int(range_str.split('-')[0])
+            end_bytes = int(range_str.split('-')[1].split('/')[0])
+            total_bytes = int(range_str.split('/')[1])
+
+
+            # append chunk to the file on server, or create new
+            with open(output_file_path, "ab") as output_file, open(input_file_path, "rb") as input_file:
+                output_file.write(input_file.read())
+            # remove temp file after copying contents
+            os.remove(input_file_path)
+
+            # check if these are the last bytes
+            # if so, create file model
+            if end_bytes >= (total_bytes - 1):
+                experimentFile = store_file_upload(filename, experiment)
+                result = experiment_file_schema.dump(experimentFile, many=False).data
+                return result, 200
+            # otherwise, return range as string
+            else:
+                return range_str, 201
+
+        # handle small/non-chunked file upload
+        else:
+            # move file from preuploads to corresponding uploads folder
+            shutil.move(input_file_path, output_file_path)
+            experimentFile = store_file_upload(filename, experiment)
+            result = experiment_file_schema.dump(experimentFile, many=False).data
+            return result, 201
+
 
 class FileController(Resource):
     decorators = [auth.login_required]
