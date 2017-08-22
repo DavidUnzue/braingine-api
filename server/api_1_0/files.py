@@ -73,7 +73,10 @@ class FileListController(Resource):
             with open(output_file_path, "ab") as output_file, open(input_file_path, "rb") as input_file:
                 output_file.write(input_file.read())
             # remove temp file after copying contents
-            os.remove(input_file_path)
+            try:
+                os.remove(input_file_path)
+            except OSError:
+                print('Not able to remove file under {}'.format(input_file_path))
 
             # check if these are the last bytes
             # if so, create file model
