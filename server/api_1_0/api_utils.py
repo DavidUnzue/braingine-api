@@ -78,3 +78,23 @@ def store_file_upload(filename, experiment):
         db.session.commit()
 
         return experimentFile
+
+
+def store_illumina_file(file_path, experiment):
+        file_path = os.path.join(current_app.config.get('EXPERIMENTS_FOLDER'), experiment.sha, current_app.config.get('UPLOADS_FOLDER'), filename)
+        file_path_internal = os.path.join(current_app.config.get('DATA_ROOT_INTERNAL'), file_path)
+        # initialize file handle for magic file type detection
+        fh_magic = magic.Magic(magic_file=current_app.config.get('BIOINFO_MAGIC_FILE'), uncompress=True)
+        # get bioinformatic file type using magic
+        file_format_full = fh_magic.from_file(file_path_internal)
+        # get mimetype of file using magic
+        mimetype = magic.from_file(file_path_internal, mime=True)
+        # get file size
+        file_stats = os.stat(file_path_internal)
+        file_size = file_stats.st_size
+
+        experimentFile = ExperimentFile(experiment_id=experiment.id, size_in_bytes=file_size, name=filename, path=file_path, folder=experiment.sha, mime_type=mimetype, file_format_full=file_format_full, is_upload=True)
+        db.session.add(experimentFile)
+        db.session.commit()
+
+        return experimentFile

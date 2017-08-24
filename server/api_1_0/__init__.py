@@ -36,7 +36,7 @@ api.add_resource(tasks.TaskStatusController, '/taskstatus/<task_id>')
 api.add_resource(storage_files.StorageFileListController, '/storage_files/')
 # illumina folders and files
 api.add_resource(illumina_files.IlluminaFolderListController, '/illumina_folders/')
-api.add_resource(illumina_files.IlluminaFileListController, '/illumina_folders/<folder_uid>/files/')
+api.add_resource(illumina_files.IlluminaFolderFileListController, '/illumina_folders/<folder_uid>/files/')
 
 # user
 api.add_resource(users.UserListController, '/users/')

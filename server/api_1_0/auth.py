@@ -29,7 +29,7 @@ def verify_password(login_name, password):
 
     # search for authenticating user using LDAP filtering
     user_search_filter = '(|(mail={0})(sAMAccountName={0}))'.format(login_name)
-    user_search = con.search_s(current_app.config.get('LDAP_BASE_DN'), ldap.SCOPE_SUBTREE, user_search_filter, ['sAMAccountName','displayName','mail','primaryGroupID',])
+    user_search = con.search_s(current_app.config.get('LDAP_BASE_DN'), ldap.SCOPE_SUBTREE, user_search_filter, ['sAMAccountName','displayName','mail','primaryGroupID','memberOf',])
 
     # failed authentication
     if user_search is None or len(user_search) <= 0 or password == '':
@@ -39,6 +39,7 @@ def verify_password(login_name, password):
     fullname = user_search[0][1]['displayName'][0].decode("utf-8")
     user_email = user_search[0][1]['mail'][0].decode("utf-8")
     primary_group_id = user_search[0][1]['primaryGroupID'][0].decode("utf-8")
+    groups = user_search[0][1]['memberOf']
     # assign user to a group based on primaryGroupID
     # if (primary_group_id == get_group_token(con, 'SCHU')):
     # elif (primary_group_id == get_group_token(con, 'LAUR')):
