@@ -60,8 +60,8 @@ def create_projection(resource_query, projection_args):
     return resource_query
 
 
-def store_file_upload(filename, experiment):
-        file_path = os.path.join(current_app.config.get('EXPERIMENTS_FOLDER'), experiment.sha, current_app.config.get('UPLOADS_FOLDER'), filename)
+def store_file_upload(filename, user):
+        file_path = os.path.join(current_app.config.get('EXPERIMENTS_FOLDER'), user.username, current_app.config.get('UPLOADS_FOLDER'), filename)
         file_path_internal = os.path.join(current_app.config.get('DATA_ROOT_INTERNAL'), file_path)
         # initialize file handle for magic file type detection
         fh_magic = magic.Magic(magic_file=current_app.config.get('BIOINFO_MAGIC_FILE'), uncompress=True)
@@ -73,7 +73,7 @@ def store_file_upload(filename, experiment):
         file_stats = os.stat(file_path_internal)
         file_size = file_stats.st_size
 
-        experimentFile = ExperimentFile(experiment_id=experiment.id, size_in_bytes=file_size, name=filename, path=file_path, folder=experiment.sha, mime_type=mimetype, file_format_full=file_format_full, is_upload=True)
+        experimentFile = ExperimentFile(user_id=user.id, size_in_bytes=file_size, name=filename, path=file_path, folder=user.username, mime_type=mimetype, file_format_full=file_format_full, is_upload=True)
         db.session.add(experimentFile)
         db.session.commit()
 

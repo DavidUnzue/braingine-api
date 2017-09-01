@@ -1,11 +1,12 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
 import os, json, werkzeug, shutil
-from flask import abort, current_app
+from flask import abort, current_app, g
 from flask.ext.restful import Resource
 
 from .. import db
 from ..models.experiment import Experiment, ExperimentFile, ExperimentFileSchema
+from ..models.user import User
 from .auth import auth
 from . import api
 from webargs import fields
@@ -24,7 +25,7 @@ class FileListController(Resource):
     def get(self, args):
         # pagination
         page = args['page']
-        pagination = ExperimentFile.query.paginate(page, current_app.config.get('ITEMS_PER_PAGE'), False)
+        pagination = ExperimentFile.query.filter_by(user_id=g.user.id).paginate(page, current_app.config.get('ITEMS_PER_PAGE'), False)
         files = pagination.items
         #experiments = Experiment.query.all()
         page_prev = None
@@ -41,22 +42,23 @@ class FileListController(Resource):
     @use_args({
         'temp_filename': fields.Str(load_from='X-Temp-File-Name', location='headers'),
         'filename': fields.Str(load_from='X-File-Name', location='headers'),
-        'experiment_id': fields.Str(load_from='X-Experiment-Id', location='headers'),
         'content-range': fields.Str(load_from='Content-Range', location='headers', missing=None),
         'content-length': fields.Int(load_from='Content-Length', location='headers', missing=0),
     })
     def post(self, args):
         from .api_utils import store_file_upload
 
+        user_id = g.user.id
+
         # Make the filename safe, remove unsupported chars
         filename = werkzeug.secure_filename(args['filename'])
-        # get experiment
-        experiment = Experiment.query.get(args['experiment_id'])
-        experiment_folder = sha1_string(experiment.name)
+        # get user folder
+        user = User.query.get(user_id)
+        user_folder = user.username
 
         input_file_path = os.path.join(current_app.config.get('SYMLINK_TO_DATA_STORAGE_PREUPLOADS'), args['temp_filename'])
 
-        output_file_path = os.path.join(current_app.config.get('DATA_ROOT_INTERNAL'), current_app.config.get('EXPERIMENTS_FOLDER'), experiment_folder, current_app.config.get('UPLOADS_FOLDER'), filename)
+        output_file_path = os.path.join(current_app.config.get('DATA_ROOT_INTERNAL'), current_app.config.get('EXPERIMENTS_FOLDER'), user_folder, current_app.config.get('UPLOADS_FOLDER'), filename)
 
         # handle chunked file upload
         if args['content-range']:
@@ -81,7 +83,7 @@ class FileListController(Resource):
             # check if these are the last bytes
             # if so, create file model
             if end_bytes >= (total_bytes - 1):
-                experimentFile = store_file_upload(filename, experiment)
+                experimentFile = store_file_upload(filename, user)
                 result = experiment_file_schema.dump(experimentFile, many=False).data
                 return result, 200
             # otherwise, return range as string
@@ -92,7 +94,7 @@ class FileListController(Resource):
         else:
             # move file from preuploads to corresponding uploads folder
             shutil.move(input_file_path, output_file_path)
-            experimentFile = store_file_upload(filename, experiment)
+            experimentFile = store_file_upload(filename, user)
             result = experiment_file_schema.dump(experimentFile, many=False).data
             return result, 201
 

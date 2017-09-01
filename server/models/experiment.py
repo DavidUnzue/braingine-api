@@ -25,20 +25,20 @@ class Experiment(Base):
     gender = db.Column(db.String(40))
     custom_fields = db.Column(JSON)
 
-    # one-to-many relationship to ExperimentFile
-    # one experiments can contain many files, one file belongs only to one experiment
-    files = db.relationship('ExperimentFile', backref='experiment',
-                                lazy='select', cascade="all, delete-orphan")
-
-    # one-to-many relationship to Analysis
-    # one experiments can contain many analyses, one analysis belongs only to one experiment
-    analyses = db.relationship('Analysis', backref='experiment',
-                                lazy='select', cascade="all, delete-orphan")
-
-    # one-to-many relationship to Visualization
-    # one experiments can contain many visualizations, one Visualization belongs only to one experiment
-    visualizations = db.relationship('Visualization', backref='experiment',
-                                lazy='select', cascade="all, delete-orphan")
+    # # one-to-many relationship to ExperimentFile
+    # # one experiments can contain many files, one file belongs only to one experiment
+    # files = db.relationship('ExperimentFile', backref='experiment',
+    #                             lazy='select', cascade="all, delete-orphan")
+    #
+    # # one-to-many relationship to Analysis
+    # # one experiments can contain many analyses, one analysis belongs only to one experiment
+    # analyses = db.relationship('Analysis', backref='experiment',
+    #                             lazy='select', cascade="all, delete-orphan")
+    #
+    # # one-to-many relationship to Visualization
+    # # one experiments can contain many visualizations, one Visualization belongs only to one experiment
+    # visualizations = db.relationship('Visualization', backref='experiment',
+    #                             lazy='select', cascade="all, delete-orphan")
 
     # constructor
     def __init__(self, user_id, exp_type, name, date, description, experimenter, organism, age, gender, custom_fields):
@@ -97,8 +97,7 @@ class ExperimentFile(Base):
     __tablename__ = "files"
 
     # Attributes
-    # id of experiment this file belongs to
-    experiment_id = db.Column(db.Integer(), db.ForeignKey("experiments.id", ondelete="CASCADE"))
+    user_id = db.Column(db.Integer(), db.ForeignKey("users.id", ondelete="CASCADE"))
     # filesize stored as amount of Bytes
     # because of huge files (>1TB) possible, we need BigInteger to store it
     # PostgreSQL: http://www.postgresql.org/docs/current/static/datatype-numeric.html
@@ -120,8 +119,8 @@ class ExperimentFile(Base):
     is_upload = db.Column(db.Boolean, nullable=False, default=False)
 
     # constructor
-    def __init__(self, experiment_id, size_in_bytes, name, path, folder, mime_type, file_format_full, is_upload=False, parent=None, display_name=None):
-        self.experiment_id = experiment_id
+    def __init__(self, user_id, size_in_bytes, name, path, folder, mime_type, file_format_full, is_upload=False, parent=None, display_name=None):
+        self.user_id = user_id
         self.size_in_bytes = size_in_bytes
         self.name = name
         self.display_name = display_name
@@ -154,7 +153,7 @@ class ExperimentFile(Base):
 
 # Marshmallow schema for experiment file
 class ExperimentFileSchema(BaseSchema):
-    experiment_id = fields.Int(dump_only=True)
+    user_id = fields.Int(dump_only=True)
     # python integer type can store very large numbers, there is no other data type like bigint
     size_in_bytes = fields.Int(dump_only=True)
     name = fields.Str()
@@ -275,8 +274,7 @@ class Analysis(Base):
 
     __tablename__ = 'analyses'
 
-    # id of experiment this analysis belongs to
-    experiment_id = db.Column(db.Integer(), db.ForeignKey("experiments.id", ondelete="CASCADE"))
+    user_id = db.Column(db.Integer(), db.ForeignKey("users.id", ondelete="CASCADE"))
     pipeline_id = db.Column(db.Integer(), db.ForeignKey("pipelines.id"))
     pipeline_uid = db.Column(db.String(), nullable=False, default='')
     state = db.Column(db.String(15), nullable=False, default='PENDING')
@@ -293,8 +291,8 @@ class Analysis(Base):
     # one analysis can contain many output file, one file can only be output of one analysis
     output_files = db.relationship('AssociationAnalysesOutputFiles', lazy='select', cascade="all, delete-orphan")
 
-    def __init__(self, experiment_id, pipeline_id, pipeline_uid):
-        self.experiment_id = experiment_id
+    def __init__(self, user_id, pipeline_id, pipeline_uid):
+        self.user_id = user_id
         self.pipeline_id = pipeline_id
         self.pipeline_uid = pipeline_uid
 
@@ -303,7 +301,7 @@ class Analysis(Base):
 
 
 class AnalysisSchema(BaseSchema):
-    experiment_id = fields.Int(dump_only=True)
+    user_id = fields.Int(dump_only=True)
     pipeline_id = fields.Int(dump_only=True)
     pipeline_uid = fields.Str()
     state = fields.Str()
@@ -374,8 +372,7 @@ class VisualizationInputFileSchema(BaseSchema):
 class Visualization(Base):
     __tablename__ = "visualizations"
 
-    # id of experiment this visualization belongs to
-    experiment_id = db.Column(db.Integer(), db.ForeignKey("experiments.id", ondelete="CASCADE"))
+    user_id = db.Column(db.Integer(), db.ForeignKey("users.id", ondelete="CASCADE"))
     # id of plotting script the visualization uses
     plot_id = db.Column(db.Integer(), db.ForeignKey("plots.id"))
     plot_uid = db.Column(db.String(), nullable=False, default='')
@@ -393,8 +390,8 @@ class Visualization(Base):
     # one visualization contains a single output file, one output file corresponds to a single visualization
     output_file_id = db.Column(db.Integer(), db.ForeignKey("files.id", ondelete="CASCADE"))
 
-    def __init__(self, experiment_id, plot_id, plot_uid):
-        self.experiment_id = experiment_id
+    def __init__(self, user_id, plot_id, plot_uid):
+        self.user_id = user_id
         self.plot_id = plot_id
         self.plot_uid = plot_uid
 
@@ -403,7 +400,7 @@ class Visualization(Base):
 
 
 class VisualizationSchema(BaseSchema):
-    experiment_id = fields.Int(dump_only=True)
+    user_id = fields.Int(dump_only=True)
     plot_id = fields.Int(dump_only=True)
     plot_uid = fields.Str()
     state = fields.Str()

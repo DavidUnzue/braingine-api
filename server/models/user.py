@@ -1,6 +1,9 @@
+import os
 from .. import db
 from .base import Base, BaseSchema
 from marshmallow import fields
+from flask import abort, current_app
+from ..utils import create_folder, silent_remove
 
 
 association_user_to_user_group = db.Table('users_to_user_groups', Base.metadata,
@@ -31,6 +34,29 @@ class UserSchema(BaseSchema):
     username = fields.Str()
     email = fields.Str()
     fullname = fields.Str()
+
+
+@db.event.listens_for(User, 'after_insert')
+def create_user_directory(mapper, connection, target):
+    """
+    Create user directory in storage after new entry created in DB
+    """
+    # setup folders for project data
+    user_folder = os.path.join(current_app.config.get('SYMLINK_TO_DATA_STORAGE'), target.username)
+    uploads_folder = os.path.join(user_folder, current_app.config.get('UPLOADS_FOLDER'))
+    analyses_folder = os.path.join(user_folder, current_app.config.get('ANALYSES_FOLDER'))
+
+    try:
+        create_folder(user_folder)
+        create_folder(uploads_folder)
+        create_folder(analyses_folder)
+    except OSError as err:
+        try:
+            db.session.delete(target)
+            db.session.commit()
+            silent_remove(user_folder)
+        finally:
+            abort(404, "Error creating user directory structure on storage service: {}".format(err))
 
 
 class UserGroup(Base):
