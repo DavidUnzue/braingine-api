@@ -5,7 +5,7 @@ from flask import current_app
 from flask.ext.restful import Resource
 import os, glob
 from .api_utils import store_illumina_file
-from ..models.experiment import Experiment
+from ..models.collection import Collection
 from webargs import fields
 from webargs.flaskparser import use_args
 
@@ -26,17 +26,13 @@ class IlluminaFolderFileListController(Resource):
 
         return illumina_files, 200
 
-    @use_args({
-        'experiment_id': fields.Int(load_from='Experiment-Id', missing=0)
-    })
     def post(self, args, folder_uid):
+        user = g.user
         files_folder = os.path.join(current_app.config.get('ILLUMINA_ROOT_INTERNAL'), folder_uid, current_app.config.get('ILLUMINA_FASTQ_FOLDER'))
         # get fastq files from specific illumina run folder
         illumina_files = [f for f in os.listdir(files_folder) if os.path.isfile(os.path.join(files_folder, f)) and not f.startswith(".") and f.endswith('.fastq.gz')]
 
-        experiment = Experiment.query.get(args['experiment_id'])
-
         for fastq_file in illumina_files:
-            new_file = store_illumina_file(fastq_file, folder_uid, experiment)
+            new_file = store_illumina_file(fastq_file, folder_uid, user)
 
         return {}, 200

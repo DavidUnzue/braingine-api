@@ -9,7 +9,9 @@ from .auth import auth
 from .. import db
 # Import models from models.py file
 # IMPORTANT!: this has to be done after the DB gets instantiated and in this case imported too
-from ..models.experiment import Experiment, ExperimentFile, Visualization, VisualizationSchema, VisualizationParameter, AssociationVisualizationsInputFiles
+from ..models.collection import Collection
+from ..models.file import ExperimentFile
+from ..models.visualization import Visualization, VisualizationSchema, VisualizationParameter, AssociationVisualizationsInputFiles
 from ..models.plot import Plot, PlotSchema, PlotInput
 from ..utils import sha256checksum, create_folder
 # http://stackoverflow.com/a/30399108
@@ -79,11 +81,11 @@ class VisualizationListController(Resource):
         return result, 200
 
     @use_args(visualization_schema)
-    def post(self, args, experiment_id):
+    def post(self, args):
         from string import Template
 
         plot_uid = args['plot_uid']
-        experiment = Experiment.query.get(experiment_id)
+        user = g.user
 
         # get plot from DB
         plot = Plot.query.filter_by(uid=plot_uid).first()
@@ -108,7 +110,7 @@ class VisualizationListController(Resource):
         # =====
 
         # create visualization entity
-        experiment_visualization = Visualization(experiment_id=experiment_id, plot_id=plot.id, plot_uid=plot_uid)
+        experiment_visualization = Visualization(user_id=user.id, plot_id=plot.id, plot_uid=plot_uid)
         # add analysis to DB
         db.session.add(experiment_visualization)
         # flush to let DB create id
@@ -145,7 +147,7 @@ class VisualizationListController(Resource):
         # =====
         # CREATE VISUALIZATION OUTPUT FOLDER
         # =====
-        create_folder(os.path.join(current_app.config.get('SYMLINK_TO_DATA_STORAGE'), experiment.sha, current_app.config.get('VISUALIZATIONS_FOLDER'), str(experiment_visualization.id)))
+        create_folder(os.path.join(current_app.config.get('SYMLINK_TO_DATA_STORAGE'), user.username, current_app.config.get('VISUALIZATIONS_FOLDER'), str(experiment_visualization.id)))
 
 
         # =====
@@ -154,7 +156,7 @@ class VisualizationListController(Resource):
 
         # build folder paths for the remote command
         # notice that the paths here are relative to the computing server and not to the web server
-        experiment_folder = os.path.join(current_app.config.get('DATA_STORAGE'), experiment.sha)
+        experiment_folder = os.path.join(current_app.config.get('DATA_STORAGE'), user.username)
         visualization_folder = os.path.join(experiment_folder, current_app.config.get('VISUALIZATIONS_FOLDER'), str(experiment_visualization.id))
 
         # write params into command template
@@ -178,24 +180,24 @@ class VisualizationListController(Resource):
 class VisualizationController(Resource):
     decorators = [auth.login_required]
 
-    def get(self, experiment_id, visualization_id):
-        experiment_visualization = Visualization.query.filter_by(experiment_id=experiment_id, id=visualization_id).first()
+    def get(self, visualization_id):
+        experiment_visualization = Visualization.query.get(visualization_id)
         result = visualization_schema.dump(experiment_visualization).data
         return result, 200
 
     def delete(self, experiment_id, visualization_id):
-        experiment_visualization = Visualization.query.filter_by(experiment_id=experiment_id, id=visualization_id).first()
+        experiment_visualization = Visualization.query.get(visualization_id)
         if not experiment_visualization:
-            abort(404, "Visualization {} for experiment {} doesn't exist".format(experiment_id, visualization_id))
+            abort(404, "Visualization {} doesn't exist".format(visualization_id))
         db.session.delete(experiment_visualization)
         db.session.commit()
         return {}, 204
 
     @use_args(visualization_schema)
     def put(self, args, experiment_id, visualization_id):
-        experiment_visualization = Visualization.query.filter_by(experiment_id=experiment_id, id=visualization_id).first()
+        experiment_visualization = Visualization.query.get(visualization_id)
         if not experiment_visualization:
-            abort(404, "Visualization {} for experiment {} doesn't exist".format(experiment_id, visualization_id))
+            abort(404, "Visualization {} doesn't exist".format(visualization_id))
         for k, v in list(args.items()):
             if v is not None:
                 setattr(experiment_visualization, k, v)

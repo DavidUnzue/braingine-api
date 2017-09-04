@@ -5,7 +5,7 @@ from flask.ext.restful import Api
 api_blueprint = Blueprint('api', __name__)
 api = Api(api_blueprint)
 
-from . import experiments, analyses, pipelines, visualizations, plots, tasks, storage_files, users, files, auth, illumina_files
+from . import collections, analyses, pipelines, visualizations, plots, tasks, storage_files, users, files, auth, illumina_files
 
 # API Endpoints
 
@@ -13,11 +13,11 @@ from . import experiments, analyses, pipelines, visualizations, plots, tasks, st
 api.add_resource(files.FileListController, '/files/')
 api.add_resource(files.FileController, '/files/<int:file_id>')
 # experiment
-api.add_resource(experiments.ExperimentListController, '/experiments/')
-api.add_resource(experiments.ExperimentController, '/experiments/<int:experiment_id>')
+api.add_resource(collections.CollectionListController, '/collections/')
+api.add_resource(collections.CollectionController, '/collections/<int:experiment_id>')
 # experiment-specific files
-api.add_resource(experiments.ExperimentFileListController, '/experiments/<int:experiment_id>/files/')
-api.add_resource(experiments.ExperimentFileController, '/experiments/<int:experiment_id>/files/<int:file_id>')
+api.add_resource(collections.CollectionFileListController, '/collections/<int:experiment_id>/files/')
+api.add_resource(collections.CollectionFileController, '/collections/<int:experiment_id>/files/<int:file_id>')
 # analysis
 api.add_resource(analyses.AnalysisListController, '/experiments/<int:experiment_id>/analyses/')
 api.add_resource(analyses.AnalysisController, '/experiments/<int:experiment_id>/analyses/<int:analysis_id>')

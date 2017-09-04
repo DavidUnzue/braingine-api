@@ -9,7 +9,8 @@ from .auth import auth
 from .. import db
 # Import models from models.py file
 # IMPORTANT!: this has to be done after the DB gets instantiated and in this case imported too
-from ..models.experiment import Experiment, ExperimentSchema, ExperimentFile, ExperimentFileSchema
+from ..models.collection import Collection, CollectionSchema
+from ..models.file import ExperimentFile, ExperimentFileSchema
 from ..utils import sha1_string, sha256checksum, write_file, write_file_in_chunks, create_folder, update_object
 from .api_utils import create_pagination_header, create_projection
 # http://stackoverflow.com/a/30399108
@@ -22,14 +23,14 @@ from webargs.flaskparser import use_args
 from sqlalchemy.exc import SQLAlchemyError
 
 
-experiment_schema = ExperimentSchema()
+collection_schema = CollectionSchema()
 experiment_file_schema = ExperimentFileSchema()
 
 # used for getting files from request
 parser = reqparse.RequestParser()
 
 
-class ExperimentListController(Resource):
+class CollectionListController(Resource):
     decorators = [auth.login_required]
 
     @use_args({
@@ -50,13 +51,13 @@ class ExperimentListController(Resource):
             search_query = urllib.parse.unquote(args['q'])
             # search for experiments containing the search query in their "name" or "experimenter" attributes
             # use "ilike" for searching case unsensitive
-            experiments_query = Experiment.query.filter(or_(Experiment.name.ilike('%'+ search_query + '%'),\
-            Experiment.exp_type.ilike('%'+ search_query + '%')))
+            experiments_query = Collection.query.filter(or_(Collection.name.ilike('%'+ search_query + '%'),\
+            Collection.exp_type.ilike('%'+ search_query + '%')))
         elif args['where']:
             filters = json.loads(args['where'])
-            experiments_query = Experiment.query.filter_by(**filters)
+            experiments_query = Collection.query.filter_by(**filters)
         else:
-            experiments_query = Experiment.query
+            experiments_query = Collection.query
 
         if args['projection']:
             projection = json.loads(args['projection'])
@@ -76,15 +77,15 @@ class ExperimentListController(Resource):
 
         # reponse body
         experiments = pagination.items
-        result = experiment_schema.dump(experiments, many=True).data
+        result = collection_schema.dump(experiments, many=True).data
 
         return result, 200, link_header
 
-    @use_args(experiment_schema)
+    @use_args(collection_schema)
     def post(self, args):
         experiment_name = args['name']
         # abort if experiment with same name already exists
-        it_exists = Experiment.query.filter_by(name=experiment_name).first()
+        it_exists = Collection.query.filter_by(name=experiment_name).first()
         if(it_exists):
             abort(404, "Error: an experiment already exists with the name \"{}\"".format(experiment_name))
 
@@ -94,7 +95,7 @@ class ExperimentListController(Resource):
         analyses_folder = os.path.join(project_folder, current_app.config.get('ANALYSES_FOLDER'))
 
         try:
-            experiment = Experiment(user_id=g.user.id, **args)
+            experiment = Collection(user_id=g.user.id, **args)
             db.session.add(experiment)
             db.session.commit()
         except SQLAlchemyError:
@@ -113,10 +114,10 @@ class ExperimentListController(Resource):
                 abort(404, "Error creating experiment's directory structure on storage service: {}".format(err))
 
 
-        result = experiment_schema.dump(experiment, many=False).data
+        result = collection_schema.dump(experiment, many=False).data
         return result, 201
 
-class ExperimentController(Resource):
+class CollectionController(Resource):
     decorators = [auth.login_required]
 
     # For a given file, return whether it's an allowed type or not
@@ -125,32 +126,32 @@ class ExperimentController(Resource):
                filename.rsplit('.', 1)[1] in current_app.config.get('ALLOWED_EXTENSIONS')
 
     def get(self, experiment_id):
-        experiment = Experiment.query.get(experiment_id)
+        experiment = Collection.query.get(experiment_id)
         if not experiment:
-            abort(404, "Experiment {} doesn't exist".format(experiment_id))
-        result = experiment_schema.dump(experiment).data
+            abort(404, "Collection {} doesn't exist".format(experiment_id))
+        result = collection_schema.dump(experiment).data
         return result, 200
 
     def delete(self, experiment_id):
-        experiment = Experiment.query.get(experiment_id)
+        experiment = Collection.query.get(experiment_id)
         if not experiment:
-            abort(404, "Experiment {} doesn't exist".format(experiment_id))
+            abort(404, "Collection {} doesn't exist".format(experiment_id))
         db.session.delete(experiment)
         db.session.commit()
         return {}, 204
 
-    @use_args(experiment_schema)
+    @use_args(collection_schema)
     def put(self, args, experiment_id):
-        experiment = Experiment.query.get(experiment_id)
+        experiment = Collection.query.get(experiment_id)
         if not experiment:
-            abort(404, "Experiment {} doesn't exist".format(experiment_id))
+            abort(404, "Collection {} doesn't exist".format(experiment_id))
         update_object(experiment, args)
         db.session.add(experiment)
         db.session.commit()
-        result = experiment_schema.dump(experiment).data
+        result = collection_schema.dump(experiment).data
         return result, 200
 
-class ExperimentFileListController(Resource):
+class CollectionFileListController(Resource):
     decorators = [auth.login_required]
 
     # For a given file, return whether it's an allowed type or not
@@ -184,7 +185,7 @@ class ExperimentFileListController(Resource):
             file_name = werkzeug.secure_filename(filename_in_storage)
 
         # get experiment
-        experiment = Experiment.query.get(experiment_id)
+        experiment = Collection.query.get(experiment_id)
 
         experiment_folder = sha1_string(experiment.name)
 
@@ -340,7 +341,7 @@ class ExperimentFileListController(Resource):
         return result, 200, link_header
 
 
-class ExperimentFileController(Resource):
+class CollectionFileController(Resource):
     decorators = [auth.login_required]
 
     # Flask Restful representations (i.e. @api.representation('text/tsv')) don't work for content negotiation here, since they apply to the api level, and not to a single resource level. That's why it isn't possible to create resource specific content negotiation.

@@ -10,7 +10,9 @@ from . import celery
 from .utils import connect_ssh, read_dir, write_file_in_chunks
 # Import db instance
 from . import db
-from .models.experiment import Analysis, Visualization, Experiment, ExperimentFile, AssociationAnalysesOutputFiles
+from .models.analysis import Analysis, AssociationAnalysesOutputFiles
+from .models.visualization import Visualization
+from .models.file import ExperimentFile
 from .models.plot import Plot
 # celery logger
 from celery.utils.log import get_task_logger
@@ -67,10 +69,10 @@ class AnalysisTask(BaseTask):
         db.session.add(experiment_analysis)
         db.session.commit()
 
-        # retrieve experiment info and folder to write output files to
-        experiment = Experiment.query.get(experiment_analysis.experiment_id)
-        experiment_folder = os.path.join(current_app.config.get('SYMLINK_TO_DATA_STORAGE'), experiment.sha)
-        analysis_folder = os.path.join(experiment_folder, current_app.config.get('ANALYSES_FOLDER'), str(experiment_analysis.id))
+        # retrieve folder to write output files to
+        user = g.user
+        user_folder = os.path.join(current_app.config.get('SYMLINK_TO_DATA_STORAGE'), user.username)
+        analysis_folder = os.path.join(user_folder, current_app.config.get('ANALYSES_FOLDER'), str(experiment_analysis.id))
 
         # write stdout to file
         write_file_in_chunks(analysis_folder, "log.out", exc.stdout)
@@ -88,10 +90,10 @@ class AnalysisTask(BaseTask):
         experiment_analysis.state = celery_states.SUCCESS
         db.session.add(experiment_analysis)
 
-        # retrieve experiment info and folder to write output files to
-        experiment = Experiment.query.get(experiment_analysis.experiment_id)
-        experiment_folder = os.path.join(current_app.config.get('EXPERIMENTS_FOLDER'), experiment.sha)
-        analysis_folder = os.path.join(experiment_folder, current_app.config.get('ANALYSES_FOLDER'), str(experiment_analysis.id))
+        # retrieve folder to write output files to
+        user = g.user
+        user_folder = os.path.join(current_app.config.get('EXPERIMENTS_FOLDER'), user.username)
+        analysis_folder = os.path.join(user_folder, current_app.config.get('ANALYSES_FOLDER'), str(experiment_analysis.id))
         analysis_folder_internal = os.path.join(current_app.config.get('DATA_ROOT_INTERNAL'), analysis_folder)
 
         # create dict to associate analysis output files to corresponding fieldnames in pipeline definition
@@ -140,7 +142,7 @@ class AnalysisTask(BaseTask):
                 file_size = os.path.getsize(file_path_internal)
 
                 # create file object and add to DB
-                new_file = ExperimentFile(experiment_id=experiment.id, size_in_bytes=file_size, name=filename, path=file_path, mime_type=mime_type, file_format_full=file_format_full, folder=experiment.sha)
+                new_file = ExperimentFile(user_id=user.id, size_in_bytes=file_size, name=filename, path=file_path, mime_type=mime_type, file_format_full=file_format_full, folder=user.username)
                 db.session.add(new_file)
 
                 # link file to analysis output
@@ -170,9 +172,9 @@ class VisualizationTask(BaseTask):
         db.session.commit()
 
         # retrieve experiment info and folder to write output files to
-        experiment = Experiment.query.get(visualization.experiment_id)
-        experiment_folder = os.path.join(current_app.config.get('SYMLINK_TO_DATA_STORAGE'), experiment.sha)
-        visualization_folder = os.path.join(experiment_folder, current_app.config.get('VISUALIZATIONS_FOLDER'), str(visualization.id))
+        user = g.user
+        user_folder = os.path.join(current_app.config.get('SYMLINK_TO_DATA_STORAGE'), user.username)
+        visualization_folder = os.path.join(user_folder, current_app.config.get('VISUALIZATIONS_FOLDER'), str(visualization.id))
 
         # write stdout to file
         write_file_in_chunks(visualization_folder, "log.out", exc.stdout)
@@ -191,9 +193,9 @@ class VisualizationTask(BaseTask):
         db.session.add(visualization)
 
         # retrieve experiment info and folder to write output files to
-        experiment = Experiment.query.get(visualization.experiment_id)
-        experiment_folder = os.path.join(current_app.config.get('SYMLINK_TO_DATA_STORAGE'), experiment.sha)
-        visualization_folder = os.path.join(experiment_folder, current_app.config.get('VISUALIZATIONS_FOLDER'), str(visualization.id))
+        user = g.user
+        user_folder = os.path.join(current_app.config.get('SYMLINK_TO_DATA_STORAGE'), user.username)
+        visualization_folder = os.path.join(user_folder, current_app.config.get('VISUALIZATIONS_FOLDER'), str(visualization.id))
 
         plot = Plot.query.get(kwargs['plot_id'])
         visualization_file = os.path.join(visualization_folder, plot.output_filename, '.html')
@@ -219,7 +221,7 @@ class VisualizationTask(BaseTask):
                 mime_type = magic.from_file(file_path_internal, mime=True)
 
                 # create file object and add to DB
-                new_file = ExperimentFile(experiment_id=experiment.id, size_in_bytes=file_size, name=filename, path=file_path, mime_type=mime_type, file_format_full=file_format_full, folder=experiment.sha)
+                new_file = ExperimentFile(user_id=user.id, size_in_bytes=file_size, name=filename, path=file_path, mime_type=mime_type, file_format_full=file_format_full, folder=user.username)
                 db.session.add(new_file)
                 db.session.flush()
 
@@ -238,10 +240,10 @@ class IlluminaImportTask(BaseTask):
         db.session.add(visualization)
         db.session.commit()
 
-        # retrieve experiment info and folder to write output files to
-        experiment = Experiment.query.get(visualization.experiment_id)
-        experiment_folder = os.path.join(current_app.config.get('SYMLINK_TO_DATA_STORAGE'), experiment.sha)
-        visualization_folder = os.path.join(experiment_folder, current_app.config.get('VISUALIZATIONS_FOLDER'), str(visualization.id))
+        # retrieve folder to write output files to
+        user = g.user
+        user_folder = os.path.join(current_app.config.get('SYMLINK_TO_DATA_STORAGE'), user.username)
+        visualization_folder = os.path.join(user_folder, current_app.config.get('VISUALIZATIONS_FOLDER'), str(visualization.id))
 
         # write stdout to file
         write_file_in_chunks(visualization_folder, "log.out", exc.stdout)
@@ -259,10 +261,10 @@ class IlluminaImportTask(BaseTask):
         visualization.state = celery_states.SUCCESS
         db.session.add(visualization)
 
-        # retrieve experiment info and folder to write output files to
-        experiment = Experiment.query.get(visualization.experiment_id)
-        experiment_folder = os.path.join(current_app.config.get('SYMLINK_TO_DATA_STORAGE'), experiment.sha)
-        visualization_folder = os.path.join(experiment_folder, current_app.config.get('VISUALIZATIONS_FOLDER'), str(visualization.id))
+        # retrieve folder to write output files to
+        user = g.user
+        user_folder = os.path.join(current_app.config.get('SYMLINK_TO_DATA_STORAGE'), user.username)
+        visualization_folder = os.path.join(user_folder, current_app.config.get('VISUALIZATIONS_FOLDER'), str(visualization.id))
 
         plot = Plot.query.get(kwargs['plot_id'])
         visualization_file = os.path.join(visualization_folder, plot.output_filename, '.html')
@@ -288,7 +290,7 @@ class IlluminaImportTask(BaseTask):
                 mime_type = magic.from_file(file_path_internal, mime=True)
 
                 # create file object and add to DB
-                new_file = ExperimentFile(experiment_id=experiment.id, size_in_bytes=file_size, name=filename, path=file_path, mime_type=mime_type, file_format_full=file_format_full, folder=experiment.sha)
+                new_file = ExperimentFile(user_id=user.id, size_in_bytes=file_size, name=filename, path=file_path, mime_type=mime_type, file_format_full=file_format_full, folder=user.username)
                 db.session.add(new_file)
                 db.session.flush()
 
@@ -331,7 +333,7 @@ def create_visualization(command, **kwargs):
         raise PlotError(message, exit_code, stdout, stderr)
     return kwargs['visualization_id']
 
-
+# TODO: finish this
 @celery.task(base=IlluminaImportTask)
 def import_illumina(command, **kwargs):
     ssh = connect_ssh(current_app.config.get('COMPUTING_SERVER_IP'), current_app.config.get('COMPUTING_SERVER_USER'), current_app.config.get('COMPUTING_SERVER_PASSWORD'))

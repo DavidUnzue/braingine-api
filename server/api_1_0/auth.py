@@ -1,6 +1,6 @@
 import ldap
 from ldap import filter as ldap_filter
-from flask import jsonify, make_response, g, current_app
+from flask import jsonify, make_response, g, current_app, abort
 from flask.ext.httpauth import HTTPBasicAuth
 from flask.ext.restful import Resource
 from ..models.user import User, UserSchema, UserGroup
@@ -16,24 +16,31 @@ def unauthorized():
     return resp
 
 @auth.verify_password
-def verify_password(login_name, password):
+def verify_password(username, password):
     # if current_app.config.get('DEBUG') == True:
-    #     user = User.query.filter_by(username=login_name).first()
+    #     user = User.query.filter_by(username=username).first()
     #     g.user = user
     #     return True
+
+    # escape special chars before filtering to protect against LDAP injection
+    username = ldap_filter.escape_filter_chars(username)
+
     # connect to LDAP server and bind known user
     con = ldap.initialize(current_app.config.get('LDAP_SERVER'), bytes_mode=False)
-    con.simple_bind_s(current_app.config.get('LDAP_USERNAME'), current_app.config.get('LDAP_PASSWORD'))
-    # escape special chars before filtering to protect against LDAP injection
-    login_name = ldap_filter.escape_filter_chars(login_name)
+    try:
+        con.simple_bind_s('{}@MPIBR'.format(username), password)
+    except ldap.INVALID_CREDENTIALS:
+        abort(401, 'Invalid credentials provided')
+    except ldap.LDAPError as e:
+        if type(e.message) == dict and e.message.has_key('desc'):
+            abort(502, e.message['desc'])
+        else:
+            abort(502, e)
 
     # search for authenticating user using LDAP filtering
-    user_search_filter = '(|(mail={0})(sAMAccountName={0}))'.format(login_name)
+    user_search_filter = '(|(mail={0})(sAMAccountName={0}))'.format(username)
     user_search = con.search_s(current_app.config.get('LDAP_BASE_DN'), ldap.SCOPE_SUBTREE, user_search_filter, ['sAMAccountName','displayName','mail','primaryGroupID','memberOf',])
 
-    # failed authentication
-    if user_search is None or len(user_search) <= 0 or password == '':
-        return False
     # get inforamtion from found user
     username = user_search[0][1]['sAMAccountName'][0].decode("utf-8")
     fullname = user_search[0][1]['displayName'][0].decode("utf-8")

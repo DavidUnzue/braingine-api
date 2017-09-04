@@ -9,7 +9,9 @@ from .auth import auth
 from .. import db
 # Import models from models.py file
 # IMPORTANT!: this has to be done after the DB gets instantiated and in this case imported too
-from ..models.experiment import Experiment, ExperimentFile, Analysis, AnalysisSchema, AnalysisParameter, AssociationAnalysesInputFiles
+from ..models.collection import Collection
+from ..models.file import ExperimentFile
+from ..models.analysis import Analysis, AnalysisSchema, AnalysisParameter, AssociationAnalysesInputFiles
 from ..models.pipeline import Pipeline, PipelineSchema, PipelineInput, PipelineOutput
 from ..utils import sha256checksum, create_folder
 # http://stackoverflow.com/a/30399108
@@ -27,8 +29,8 @@ pipeline_schema = PipelineSchema()
 class AnalysisListController(Resource):
     decorators = [auth.login_required]
 
-    def get(self, experiment_id):
-        experiment_analyses = Analysis.query.filter_by(experiment_id=experiment_id).all()
+    def get(self):
+        experiment_analyses = Analysis.query.filter_by(user_id=g.user.id).all()
         result = analysis_schema.dump(experiment_analyses, many=True).data
         return result, 200
 
@@ -109,12 +111,11 @@ class AnalysisListController(Resource):
         db.session.commit()
 
     @use_args(analysis_schema)
-    def post(self, args, experiment_id):
+    def post(self, args):
         from string import Template
 
+        user = g.user
         pipeline_uid = args['pipeline_uid']
-        experiment = Experiment.query.get(experiment_id)
-
         # get pipeline from DB
         pipeline = Pipeline.query.filter_by(uid=pipeline_uid).first()
         # if pipeline not available in DB or checksum of definition file changed, create new DB entry
@@ -141,7 +142,7 @@ class AnalysisListController(Resource):
         # =====
 
         # create analysis entity
-        experiment_analysis = Analysis(experiment_id=experiment_id, pipeline_id=pipeline.id, pipeline_uid=pipeline_uid)
+        experiment_analysis = Analysis(user_id=user.id, pipeline_id=pipeline.id, pipeline_uid=pipeline_uid)
         # add analysis to DB
         db.session.add(experiment_analysis)
         # flush to let DB create id primary key for experiment_analysis
@@ -178,7 +179,7 @@ class AnalysisListController(Resource):
         # =====
         # CREATE ANALYSIS OUTPUT FOLDER
         # =====
-        create_folder(os.path.join(current_app.config.get('SYMLINK_TO_DATA_STORAGE'), experiment.sha, current_app.config.get('ANALYSES_FOLDER'), str(experiment_analysis.id)))
+        create_folder(os.path.join(current_app.config.get('SYMLINK_TO_DATA_STORAGE'), user.username, current_app.config.get('ANALYSES_FOLDER'), str(experiment_analysis.id)))
 
 
         # =====
@@ -187,7 +188,7 @@ class AnalysisListController(Resource):
 
         # build folder paths for the remote command
         # notice that the paths here are relative to the computing server and not to the web server
-        experiment_folder = os.path.join(current_app.config.get('DATA_STORAGE'), experiment.sha)
+        experiment_folder = os.path.join(current_app.config.get('DATA_STORAGE'), user.username)
         analysis_folder = os.path.join(experiment_folder, current_app.config.get('ANALYSES_FOLDER'), str(experiment_analysis.id))
 
         # write params into command template
@@ -215,13 +216,13 @@ class AnalysisListController(Resource):
 class AnalysisController(Resource):
     decorators = [auth.login_required]
 
-    def get(self, experiment_id, analysis_id):
-        experiment_analysis = Analysis.query.filter_by(experiment_id=experiment_id, id=analysis_id).first()
+    def get(self, analysis_id):
+        experiment_analysis = Analysis.query.get(analysis_id)
         result = analysis_schema.dump(experiment_analysis).data
         return result, 200
 
-    def delete(self, experiment_id, analysis_id):
-        experiment_analysis = Analysis.query.filter_by(experiment_id=experiment_id, id=analysis_id).first()
+    def delete(self, analysis_id):
+        experiment_analysis = Analysis.query.get(analysis_id)
         if not experiment_analysis:
             abort(404, "Analysis {} for experiment {} doesn't exist".format(experiment_id, analysis_id))
         db.session.delete(experiment_analysis)
@@ -229,8 +230,8 @@ class AnalysisController(Resource):
         return {}, 204
 
     @use_args(analysis_schema)
-    def put(self, args, experiment_id, analysis_id):
-        experiment_analysis = Analysis.query.filter_by(experiment_id=experiment_id, id=analysis_id).first()
+    def put(self, args, analysis_id):
+        experiment_analysis = Analysis.query.get(analysis_id)
         if not experiment_analysis:
             abort(404, "Experiment analysis {} doesn't exist".format(analysis_id))
         for k, v in list(args.items()):

@@ -1,6 +1,6 @@
 import os, magic
 from flask import current_app
-from ..models.experiment import ExperimentFile
+from ..models.file import ExperimentFile
 from .. import db
 from . import api
 
@@ -80,7 +80,7 @@ def store_file_upload(filename, user):
         return experimentFile
 
 
-def store_illumina_file(filename, folder_uid, experiment):
+def store_illumina_file(filename, folder_uid, user):
         file_path = os.path.join(current_app.config.get('ILLUMINA_ROOT_EXTERNAL'), folder_uid, current_app.config.get('ILLUMINA_FASTQ_FOLDER'), filename)
         file_path_internal = os.path.join(current_app.config.get('ILLUMINA_ROOT_INTERNAL'), folder_uid, current_app.config.get('ILLUMINA_FASTQ_FOLDER'), filename)
         # initialize file handle for magic file type detection
@@ -94,7 +94,7 @@ def store_illumina_file(filename, folder_uid, experiment):
         file_size = file_stats.st_size
 
 
-        experimentFile = ExperimentFile(experiment_id=experiment.id, size_in_bytes=file_size, name=filename, path=file_path, folder=experiment.sha, mime_type=mimetype, file_format_full=file_format_full, is_upload=True)
+        experimentFile = ExperimentFile(user_id=user.id, size_in_bytes=file_size, name=filename, path=file_path, folder=user.username, mime_type=mimetype, file_format_full=file_format_full, is_upload=True)
         db.session.add(experimentFile)
         db.session.commit()
 

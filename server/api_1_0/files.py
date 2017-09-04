@@ -5,7 +5,7 @@ from flask import abort, current_app, g
 from flask.ext.restful import Resource
 
 from .. import db
-from ..models.experiment import Experiment, ExperimentFile, ExperimentFileSchema
+from ..models.file import ExperimentFile, ExperimentFileSchema
 from ..models.user import User
 from .auth import auth
 from . import api
@@ -27,7 +27,6 @@ class FileListController(Resource):
         page = args['page']
         pagination = ExperimentFile.query.filter_by(user_id=g.user.id).paginate(page, current_app.config.get('ITEMS_PER_PAGE'), False)
         files = pagination.items
-        #experiments = Experiment.query.all()
         page_prev = None
         if pagination.has_prev:
             page_prev = api.url_for(self, page=page-1, _external=True)
