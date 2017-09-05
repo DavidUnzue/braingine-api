@@ -91,3 +91,4 @@ develop.sh
 *.log
 data
 uwsgi.ini
+storage/
