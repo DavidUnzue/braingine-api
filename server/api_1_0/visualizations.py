@@ -75,8 +75,8 @@ class VisualizationListController(Resource):
 
         return plot
 
-    def get(self, experiment_id):
-        experiment_visualizations = Visualization.query.filter_by(experiment_id=experiment_id).all()
+    def get(self):
+        experiment_visualizations = Visualization.query.filter_by(user_id=g.user.id).all()
         result = visualization_schema.dump(experiment_visualizations, many=True).data
         return result, 200
 

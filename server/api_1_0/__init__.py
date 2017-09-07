@@ -21,12 +21,13 @@ api.add_resource(collections.CollectionFileController, '/collections/<int:experi
 # analysis
 api.add_resource(analyses.AnalysisListController, '/analyses/')
 api.add_resource(analyses.AnalysisController, '/analyses/<int:analysis_id>')
+api.add_resource(analyses.AnalysisFileListController, '/analyses/<int:analysis_id>/files/')
 # pipeline
 api.add_resource(pipelines.PipelineListController, '/pipelines/')
 api.add_resource(pipelines.PipelineController, '/pipelines/<pipeline_uid>')
 # visualization
-api.add_resource(visualizations.VisualizationListController, '/experiments/<int:experiment_id>/visualizations/')
-api.add_resource(visualizations.VisualizationController, '/experiments/<int:experiment_id>/visualizations/<int:visualization_id>')
+api.add_resource(visualizations.VisualizationListController, '/visualizations/')
+api.add_resource(visualizations.VisualizationController, '/visualizations/<int:visualization_id>')
 # plot
 api.add_resource(plots.PlotListController, '/plots/')
 api.add_resource(plots.PlotController, '/plots/<plot_uid>')

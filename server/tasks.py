@@ -5,7 +5,7 @@
     module for long running tasks
 """
 import os, magic
-from flask import current_app
+from flask import current_app, g
 from . import celery
 from .utils import connect_ssh, read_dir, write_file_in_chunks
 # Import db instance
@@ -14,6 +14,7 @@ from .models.analysis import Analysis, AssociationAnalysesOutputFiles
 from .models.visualization import Visualization
 from .models.file import ExperimentFile
 from .models.plot import Plot
+from .models.user import User
 # celery logger
 from celery.utils.log import get_task_logger
 from celery import states as celery_states
@@ -63,16 +64,15 @@ class BaseTask(celery.Task):
 class AnalysisTask(BaseTask):
     def on_failure(self, exc, task_id, args, kwargs, einfo):
         # update analysis status
-        experiment_analysis_id = kwargs['analysis_id']
-        experiment_analysis = Analysis.query.get(experiment_analysis_id)
-        experiment_analysis.state = celery_states.FAILURE
-        db.session.add(experiment_analysis)
+        analysis = Analysis.query.get(kwargs['analysis_id'])
+        analysis.state = celery_states.FAILURE
+        db.session.add(analysis)
         db.session.commit()
 
         # retrieve folder to write output files to
         user = g.user
         user_folder = os.path.join(current_app.config.get('SYMLINK_TO_DATA_STORAGE'), user.username)
-        analysis_folder = os.path.join(user_folder, current_app.config.get('ANALYSES_FOLDER'), str(experiment_analysis.id))
+        analysis_folder = os.path.join(user_folder, current_app.config.get('ANALYSES_FOLDER'), str(analysis.id))
 
         # write stdout to file
         write_file_in_chunks(analysis_folder, "log.out", exc.stdout)
@@ -85,15 +85,13 @@ class AnalysisTask(BaseTask):
 
     def on_success(self, retval, task_id, args, kwargs):
         # update analysis status
-        experiment_analysis_id = kwargs['analysis_id']
-        experiment_analysis = Analysis.query.get(experiment_analysis_id)
-        experiment_analysis.state = celery_states.SUCCESS
-        db.session.add(experiment_analysis)
+        analysis = Analysis.query.get(kwargs['analysis_id'])
+        analysis.state = celery_states.SUCCESS
+        db.session.add(analysis)
 
-        # retrieve folder to write output files to
-        user = g.user
+        user = User.query.get(analysis.user_id)
         user_folder = os.path.join(current_app.config.get('EXPERIMENTS_FOLDER'), user.username)
-        analysis_folder = os.path.join(user_folder, current_app.config.get('ANALYSES_FOLDER'), str(experiment_analysis.id))
+        analysis_folder = os.path.join(user_folder, current_app.config.get('ANALYSES_FOLDER'), str(analysis.id))
         analysis_folder_internal = os.path.join(current_app.config.get('DATA_ROOT_INTERNAL'), analysis_folder)
 
         # create dict to associate analysis output files to corresponding fieldnames in pipeline definition
@@ -148,18 +146,26 @@ class AnalysisTask(BaseTask):
                 # link file to analysis output
                 analysis_output_file_assoc = AssociationAnalysesOutputFiles(pipeline_fieldname=pipeline_fieldname)
                 analysis_output_file_assoc.output_file = new_file
-                experiment_analysis.output_files.append(analysis_output_file_assoc)
+                analysis.output_files.append(analysis_output_file_assoc)
 
         db.session.commit()
 
-    def after_return(self, status, retval, task_id, args, kwargs, einfo):
-        # # update analysis status
-        # experiment_analysis_id = kwargs['analysis_id']
-        # experiment_analysis = Analysis.query.get(experiment_analysis_id)
-        # experiment_analysis.state = status
-        # db.session.add(experiment_analysis)
-        # db.session.commit()
-        pass
+
+@celery.task(base=AnalysisTask)
+def run_analysis(command, **kwargs):
+    ssh = connect_ssh(current_app.config.get('COMPUTING_SERVER_IP'), current_app.config.get('COMPUTING_SERVER_USER'), current_app.config.get('COMPUTING_SERVER_PASSWORD'))
+    stdin, stdout, stderr = ssh.exec_command(command)
+    print(command)
+    # print stdout
+    for line in stdout:
+        print(line.strip("\n"))
+    # exit code of pipeline script
+    exit_code = stdout.channel.recv_exit_status()
+    # if pipeline exits with error code (different than 0)
+    if exit_code != 0:
+        message = "The pipeline with id '{}' raised an error".format(kwargs['pipeline_id'])
+        raise PipelineError(message, exit_code, stdout, stderr)
+    return kwargs['analysis_id']
 
 
 class VisualizationTask(BaseTask):
@@ -298,23 +304,6 @@ class IlluminaImportTask(BaseTask):
                 visualization.output_file_id = new_file.id
 
         db.session.commit()
-
-
-@celery.task(base=AnalysisTask)
-def run_analysis(command, **kwargs):
-    ssh = connect_ssh(current_app.config.get('COMPUTING_SERVER_IP'), current_app.config.get('COMPUTING_SERVER_USER'), current_app.config.get('COMPUTING_SERVER_PASSWORD'))
-    stdin, stdout, stderr = ssh.exec_command(command)
-    print(command)
-    # print stdout
-    for line in stdout:
-        print(line.strip("\n"))
-    # exit code of pipeline script
-    exit_code = stdout.channel.recv_exit_status()
-    # if pipeline exits with error code (different than 0)
-    if exit_code != 0:
-        message = "The pipeline with id '{}' raised an error".format(kwargs['pipeline_id'])
-        raise PipelineError(message, exit_code, stdout, stderr)
-    return kwargs['analysis_id']
 
 
 @celery.task(base=VisualizationTask)
