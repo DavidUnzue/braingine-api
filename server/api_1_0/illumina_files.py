@@ -1,15 +1,18 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
 
-from flask import current_app
+from flask import current_app, g
 from flask.ext.restful import Resource
 import os, glob
+from .auth import auth
 from .api_utils import store_illumina_file
 from ..models.collection import Collection
 from webargs import fields
 from webargs.flaskparser import use_args
 
 class IlluminaFolderListController(Resource):
+    decorators = [auth.login_required]
+
     def get(self):
         raw_data_folder = current_app.config.get('ILLUMINA_ROOT_INTERNAL')
         # get list of illumina run folders
@@ -19,6 +22,8 @@ class IlluminaFolderListController(Resource):
 
 
 class IlluminaFolderFileListController(Resource):
+    decorators = [auth.login_required]
+
     def get(self, folder_uid):
         files_folder = os.path.join(current_app.config.get('ILLUMINA_ROOT_INTERNAL'), folder_uid, current_app.config.get('ILLUMINA_FASTQ_FOLDER'))
         # get fastq files from specific illumina run folder
@@ -26,7 +31,7 @@ class IlluminaFolderFileListController(Resource):
 
         return illumina_files, 200
 
-    def post(self, args, folder_uid):
+    def post(self, folder_uid):
         user = g.user
         files_folder = os.path.join(current_app.config.get('ILLUMINA_ROOT_INTERNAL'), folder_uid, current_app.config.get('ILLUMINA_FASTQ_FOLDER'))
         # get fastq files from specific illumina run folder

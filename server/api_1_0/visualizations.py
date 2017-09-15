@@ -130,7 +130,7 @@ class VisualizationListController(Resource):
                     visualization_input_file_assoc.input_file = input_file
                     experiment_visualization.input_files.append(visualization_input_file_assoc)
                     # store file's path for each input file
-                    input_file_path = os.path.join(current_app.config.get('DATA_ROOT_EXTERNAL'), input_file.path)
+                    input_file_path = input_file.path
                     file_paths.append(input_file_path)
                 # include file paths for each param for later use in command building
                 plot_input_files[param_name] = ' '.join(file_paths)
@@ -185,7 +185,7 @@ class VisualizationController(Resource):
         result = visualization_schema.dump(experiment_visualization).data
         return result, 200
 
-    def delete(self, experiment_id, visualization_id):
+    def delete(self, visualization_id):
         experiment_visualization = Visualization.query.get(visualization_id)
         if not experiment_visualization:
             abort(404, "Visualization {} doesn't exist".format(visualization_id))
@@ -194,7 +194,7 @@ class VisualizationController(Resource):
         return {}, 204
 
     @use_args(visualization_schema)
-    def put(self, args, experiment_id, visualization_id):
+    def put(self, args, visualization_id):
         experiment_visualization = Visualization.query.get(visualization_id)
         if not experiment_visualization:
             abort(404, "Visualization {} doesn't exist".format(visualization_id))

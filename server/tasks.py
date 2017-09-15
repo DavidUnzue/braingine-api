@@ -90,9 +90,9 @@ class AnalysisTask(BaseTask):
         db.session.add(analysis)
 
         user = User.query.get(analysis.user_id)
-        user_folder = os.path.join(current_app.config.get('EXPERIMENTS_FOLDER'), user.username)
+        user_folder = os.path.join(current_app.config.get('DATA_FOLDER'), user.username)
         analysis_folder = os.path.join(user_folder, current_app.config.get('ANALYSES_FOLDER'), str(analysis.id))
-        analysis_folder_internal = os.path.join(current_app.config.get('DATA_ROOT_INTERNAL'), analysis_folder)
+        analysis_folder_internal = os.path.join(current_app.config.get('BRAINGINE_ROOT'), analysis_folder)
 
         # create dict to associate analysis output files to corresponding fieldnames in pipeline definition
         # this will just invert the key/value pairs within the original analysis_outputs dictionary
@@ -120,27 +120,27 @@ class AnalysisTask(BaseTask):
                 else:
                     continue
 
-                # remove internal root part (DATA_ROOT_INTERNAL) of path
-                clean_root = root[len(current_app.config.get('DATA_ROOT_INTERNAL')):]
-                # remove prefix slash
-                if (clean_root[0] == os.sep):
-                    clean_root = clean_root[1:]
+                # # remove internal root part (DATA_ROOT_INTERNAL) of path
+                # clean_root = root[len(current_app.config.get('BRAINGINE_ROOT')):]
+                # # remove prefix slash
+                # if (clean_root[0] == os.sep):
+                #     clean_root = clean_root[1:]
 
                 # path to the file in the storage server
-                file_path = os.path.join(clean_root, filename)
-                file_path_internal = os.path.join(root, filename)
+                file_path = os.path.join(root, filename)
+                # file_path_internal = os.path.join(root, filename)
 
                 # initialize file handle for magic file type detection
                 fh_magic = magic.Magic(magic_file=current_app.config.get('BIOINFO_MAGIC_FILE'), uncompress=True)
 
                 # get bioinformatic file type using magic
-                file_format_full = fh_magic.from_file(file_path_internal)
-                mime_type = magic.from_file(file_path_internal, mime=True)
+                file_format_full = fh_magic.from_file(file_path)
+                mime_type = magic.from_file(file_path, mime=True)
 
-                file_size = os.path.getsize(file_path_internal)
+                file_size = os.path.getsize(file_path)
 
                 # create file object and add to DB
-                new_file = ExperimentFile(user_id=user.id, size_in_bytes=file_size, name=filename, path=file_path, mime_type=mime_type, file_format_full=file_format_full, folder=user.username)
+                new_file = ExperimentFile(user_id=user.id, size_in_bytes=file_size, name=filename, path=file_path, mime_type=mime_type, file_format_full=file_format_full)
                 db.session.add(new_file)
 
                 # link file to analysis output
@@ -198,36 +198,35 @@ class VisualizationTask(BaseTask):
         visualization.state = celery_states.SUCCESS
         db.session.add(visualization)
 
-        # retrieve experiment info and folder to write output files to
-        user = g.user
-        user_folder = os.path.join(current_app.config.get('SYMLINK_TO_DATA_STORAGE'), user.username)
+        user = User.query.get(visualization.user_id)
+        user_folder = os.path.join(current_app.config.get('DATA_FOLDER'), user.username)
         visualization_folder = os.path.join(user_folder, current_app.config.get('VISUALIZATIONS_FOLDER'), str(visualization.id))
+        visualization_folder_internal = os.path.join(current_app.config.get('BRAINGINE_ROOT'), visualization_folder)
 
         plot = Plot.query.get(kwargs['plot_id'])
         visualization_file = os.path.join(visualization_folder, plot.output_filename, '.html')
 
         # create DB entries for each analysis output file
-        for root, subdirs, files in os.walk(visualization_folder):
+        for root, subdirs, files in os.walk(visualization_folder_internal):
             # read analysis files in directory
             for filename in files:
                 # remove internal root part (DATA_ROOT_INTERNAL) of path
-                clean_root = root[len(current_app.config.get('DATA_ROOT_INTERNAL')):]
-                # remove prefix slash
-                if (clean_root[0] == os.sep):
-                    clean_root = clean_root[1:]
+                # clean_root = root[len(current_app.config.get('DATA_ROOT_INTERNAL')):]
+                # # remove prefix slash
+                # if (clean_root[0] == os.sep):
+                #     clean_root = clean_root[1:]
 
-                file_path = os.path.join(clean_root, filename)
-                file_path_internal = os.path.join(root, filename)
-                file_size = os.path.getsize(file_path_internal)
+                file_path = os.path.join(root, filename)
+                file_size = os.path.getsize(file_path)
                 # initialize file handle for magic file type detection
                 fh_magic = magic.Magic(magic_file=current_app.config.get('BIOINFO_MAGIC_FILE'))
 
                 # get bioinformatic file type using magic
-                file_format_full = fh_magic.from_file(file_path_internal)
-                mime_type = magic.from_file(file_path_internal, mime=True)
+                file_format_full = fh_magic.from_file(file_path)
+                mime_type = magic.from_file(file_path, mime=True)
 
                 # create file object and add to DB
-                new_file = ExperimentFile(user_id=user.id, size_in_bytes=file_size, name=filename, path=file_path, mime_type=mime_type, file_format_full=file_format_full, folder=user.username)
+                new_file = ExperimentFile(user_id=user.id, size_in_bytes=file_size, name=filename, path=file_path, mime_type=mime_type, file_format_full=file_format_full)
                 db.session.add(new_file)
                 db.session.flush()
 

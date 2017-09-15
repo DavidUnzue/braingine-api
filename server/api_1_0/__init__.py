@@ -16,12 +16,13 @@ api.add_resource(files.FileController, '/files/<int:file_id>')
 api.add_resource(collections.CollectionListController, '/collections/')
 api.add_resource(collections.CollectionController, '/collections/<int:experiment_id>')
 # experiment-specific files
-api.add_resource(collections.CollectionFileListController, '/collections/<int:experiment_id>/files/')
-api.add_resource(collections.CollectionFileController, '/collections/<int:experiment_id>/files/<int:file_id>')
+api.add_resource(collections.CollectionFileListController, '/collections/<int:collection_id>/files/')
+api.add_resource(collections.CollectionFileController, '/collections/<int:collection_id>/files/<int:file_id>')
 # analysis
 api.add_resource(analyses.AnalysisListController, '/analyses/')
 api.add_resource(analyses.AnalysisController, '/analyses/<int:analysis_id>')
-api.add_resource(analyses.AnalysisFileListController, '/analyses/<int:analysis_id>/files/')
+api.add_resource(analyses.AnalysisInputFileListController, '/analyses/<int:analysis_id>/input_files/')
+api.add_resource(analyses.AnalysisOutputFileListController, '/analyses/<int:analysis_id>/output_files/')
 # pipeline
 api.add_resource(pipelines.PipelineListController, '/pipelines/')
 api.add_resource(pipelines.PipelineController, '/pipelines/<pipeline_uid>')

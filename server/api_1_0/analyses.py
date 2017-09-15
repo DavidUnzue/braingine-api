@@ -10,8 +10,8 @@ from .. import db
 # Import models from models.py file
 # IMPORTANT!: this has to be done after the DB gets instantiated and in this case imported too
 from ..models.collection import Collection
-from ..models.file import ExperimentFile
-from ..models.analysis import Analysis, AnalysisSchema, AnalysisParameter, AssociationAnalysesInputFiles
+from ..models.file import ExperimentFile, ExperimentFileSchema
+from ..models.analysis import Analysis, AnalysisSchema, AnalysisParameter, AssociationAnalysesInputFiles, AssociationAnalysesOutputFiles
 from ..models.pipeline import Pipeline, PipelineSchema, PipelineInput, PipelineOutput
 from ..utils import sha256checksum, create_folder
 # http://stackoverflow.com/a/30399108
@@ -24,6 +24,7 @@ from webargs.flaskparser import use_args
 
 analysis_schema = AnalysisSchema()
 pipeline_schema = PipelineSchema()
+experiment_file_schema = ExperimentFileSchema()
 
 
 class AnalysisListController(Resource):
@@ -162,7 +163,7 @@ class AnalysisListController(Resource):
                     analysis_input_file_assoc.input_file = input_file
                     experiment_analysis.input_files.append(analysis_input_file_assoc)
                     # store file's path for each input file
-                    input_file_path = os.path.join(current_app.config.get('DATA_ROOT_EXTERNAL'), input_file.path)
+                    input_file_path = input_file.path
                     file_paths.append(input_file_path)
                 # include file paths for each param for later use in command building
                 pipeline_input_files[param_name] = ' '.join(file_paths)
@@ -240,4 +241,68 @@ class AnalysisController(Resource):
         db.session.add(experiment_analysis)
         db.session.commit()
         result = analysis_schema.dump(experiment_analysis).data
+        return result, 200
+
+
+class AnalysisInputFileListController(Resource):
+    decorators = [auth.login_required]
+
+    @use_args({
+        'page': fields.Int(missing=1)
+    })
+    def get(self, args, analysis_id):
+        # pagination
+        page = args['page']
+
+        file_ids = AssociationAnalysesInputFiles.query \
+                    .with_entities(AssociationAnalysesInputFiles.file_id) \
+                    .filter_by(analysis_id=analysis_id).all()
+
+        pagination = ExperimentFile.query \
+                        .filter(ExperimentFile.id.in_(file_ids)) \
+                        .paginate(page, current_app.config.get('ITEMS_PER_PAGE'), False)
+
+        files = pagination.items
+
+        page_prev = None
+        if pagination.has_prev:
+            page_prev = api.url_for(self, page=page-1, _external=True)
+        page_next = None
+        if pagination.has_next:
+            page_next = api.url_for(self, page=page+1, _external=True)
+
+        result = experiment_file_schema.dump(files, many=True).data
+
+        return result, 200
+
+
+class AnalysisOutputFileListController(Resource):
+    decorators = [auth.login_required]
+
+    @use_args({
+        'page': fields.Int(missing=1)
+    })
+    def get(self, args, analysis_id):
+        # pagination
+        page = args['page']
+
+        file_ids = AssociationAnalysesOutputFiles.query \
+                    .with_entities(AssociationAnalysesOutputFiles.file_id) \
+                    .filter_by(analysis_id=analysis_id).all()
+
+        pagination = ExperimentFile.query \
+                        .filter(ExperimentFile.id.in_(file_ids)) \
+                        .paginate(page, current_app.config.get('ITEMS_PER_PAGE'), False)
+
+        files = pagination.items
+
+        page_prev = None
+        if pagination.has_prev:
+            page_prev = api.url_for(self, page=page-1, _external=True)
+        page_next = None
+        if pagination.has_next:
+            page_next = api.url_for(self, page=page+1, _external=True)
+
+        result = experiment_file_schema.dump(files, many=True).data
+
         return result, 200

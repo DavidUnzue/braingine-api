@@ -5,6 +5,7 @@ from flask import abort, current_app, g
 from flask.ext.restful import Resource
 
 from .. import db
+from sqlalchemy import text
 from ..models.file import ExperimentFile, ExperimentFileSchema
 from ..models.user import User
 from .auth import auth
@@ -12,6 +13,7 @@ from . import api
 from webargs import fields
 from webargs.flaskparser import use_args
 from ..utils import sha1_string
+from .api_utils import create_pagination_header, create_projection, store_file_upload
 
 experiment_file_schema = ExperimentFileSchema()
 
@@ -20,23 +22,51 @@ class FileListController(Resource):
     decorators = [auth.login_required]
 
     @use_args({
-        'page': fields.Int(missing=1)
+        # access querystring arguments to filter files by is_upload
+        'is_upload': fields.Bool(location='query', missing=None),
+        'page': fields.Int(location='query', missing=1),
+        'per_page': fields.Int(location='query', missing=None),
+        'projection': fields.Str(location='query', missing=None),
+        'merge': fields.Bool(location='query', missing=False),
+        'sort_by': fields.Str(location='query', missing=None),
+        'order': fields.Str(location='query', missing=None),
+        'where': fields.Str(location='query', missing=None)
     })
     def get(self, args):
         # pagination
         page = args['page']
-        pagination = ExperimentFile.query.filter_by(user_id=g.user.id).paginate(page, current_app.config.get('ITEMS_PER_PAGE'), False)
-        files = pagination.items
-        page_prev = None
-        if pagination.has_prev:
-            page_prev = api.url_for(self, page=page-1, _external=True)
-        page_next = None
-        if pagination.has_next:
-            page_next = api.url_for(self, page=page+1, _external=True)
+        user = g.user
+        # filtering
+        filters = {}
+        filters['user_id'] = user.id
+        if args['is_upload']:
+            filters['is_upload'] = args['is_upload']
+        if args['where']:
+            filters.update(json.loads(args['where']))
 
-        result = experiment_file_schema.dump(files, many=True).data
+        experiment_files_query = ExperimentFile.query.filter_by(**filters)
 
-        return result, 200
+        if args['projection']:
+            projection = json.loads(args['projection'])
+            experiment_files_query = create_projection(experiment_files_query, projection)
+        if args['merge']:
+            experiment_files_query = experiment_files_query.distinct()
+        if args['sort_by'] and args['order']:
+            sort = "{} {}".format(args['sort_by'], args['order'])
+            experiment_files_query = experiment_files_query.order_by(text(sort))
+
+        # create pagination
+        page = args['page']
+        per_page = args['per_page'] or current_app.config.get('ITEMS_PER_PAGE')
+        pagination = experiment_files_query.paginate(page, per_page, False)
+        # pagination headers
+        link_header = create_pagination_header(self, pagination, page)
+
+        # reponse body
+        experiment_files = pagination.items
+        result = experiment_file_schema.dump(experiment_files, many=True).data
+        return result, 200, link_header
+
 
     @use_args({
         'temp_filename': fields.Str(load_from='X-Temp-File-Name', location='headers'),
@@ -45,19 +75,16 @@ class FileListController(Resource):
         'content-length': fields.Int(load_from='Content-Length', location='headers', missing=0),
     })
     def post(self, args):
-        from .api_utils import store_file_upload
-
-        user_id = g.user.id
+        user = g.user
 
         # Make the filename safe, remove unsupported chars
         filename = werkzeug.secure_filename(args['filename'])
         # get user folder
-        user = User.query.get(user_id)
         user_folder = user.username
 
         input_file_path = os.path.join(current_app.config.get('SYMLINK_TO_DATA_STORAGE_PREUPLOADS'), args['temp_filename'])
 
-        output_file_path = os.path.join(current_app.config.get('DATA_ROOT_INTERNAL'), current_app.config.get('EXPERIMENTS_FOLDER'), user_folder, current_app.config.get('UPLOADS_FOLDER'), filename)
+        output_file_path = os.path.join(current_app.config.get('BRAINGINE_ROOT'), current_app.config.get('DATA_FOLDER'), user_folder, current_app.config.get('UPLOADS_FOLDER'), filename)
 
         # handle chunked file upload
         if args['content-range']:
@@ -101,40 +128,28 @@ class FileListController(Resource):
 class FileController(Resource):
     decorators = [auth.login_required]
 
-    def request_wants_json(self):
-        from flask import request
-        best = request.accept_mimetypes \
-            .best_match(['application/json', 'text/html'])
-        return best == 'application/json' and \
-            request.accept_mimetypes[best] > \
-            request.accept_mimetypes['text/html']
-
     def download_file(self, experiment_file, attachment=False):
         """Makes a Flask response with the corresponding content-type encoded body"""
         from flask import send_from_directory
-        data_path = os.path.abspath(current_app.config.get('DATA_ROOT_INTERNAL'))
-        return send_from_directory(data_path, experiment_file.path, mimetype=experiment_file.mime_type, as_attachment=attachment)
+        file_folder_path = os.path.dirname(os.path.abspath(experiment_file.path))
+        print(file_folder_path)
+        return send_from_directory(file_folder_path, experiment_file.name, mimetype=experiment_file.mime_type, as_attachment=attachment)
 
     @use_args({
-        'accept': fields.Str(load_from='Accept', location='headers'), # default is */* for accepting everything
+        'alt': fields.Str(location='querystring', missing=''), # return file contents with 'alt=media'
         'download': fields.Boolean(location='querystring', missing=False) # force download or not
     })
     def get(self, args, file_id):
         single_file = ExperimentFile.query.get(file_id)
         if not single_file:
             abort(404, "File {} doesn't exist".format(file_id))
-        # metadata as json requested
-        if self.request_wants_json():
-        # if (args['accept'] == 'application/json'):
+        # return file contents if 'alt=media' in querystring
+        if args['alt'] == 'media':
+            return self.download_file(single_file, args['download'])
+        # return only file's metadata as json
+        else:
             result = experiment_file_schema.dump(single_file).data
             return result, 200
-        # otherwise send file contents
-        # elif (args['accept'] == single_file.mime_type or args['accept'] == '*/*'):
-        else:
-            return self.download_file(single_file, args['download'])
-        # not acceptable content-type requested
-        # else:
-        #     abort(406, "The resource identified by the request is only capable of generating response entities which have content characteristics not acceptable according to the accept headers sent in the request.")
 
     def delete(self, file_id):
         experiment_file = ExperimentFile.query.get(file_id)

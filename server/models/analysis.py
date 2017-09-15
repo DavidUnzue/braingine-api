@@ -83,15 +83,15 @@ class Analysis(Base):
 
     # one-to-many relationship to experiment analysis parameters
     # An experiment analysis contains one or more parameters
-    parameters = db.relationship('AnalysisParameter', backref='analysis', lazy='select', cascade="all, delete-orphan")
+    parameters = db.relationship('AnalysisParameter', backref='analysis', lazy='dynamic', cascade="all, delete-orphan")
 
     # many-to-many relationship
     # one analysis can contain many input file, one file can be input of many analyses
-    input_files = db.relationship('AssociationAnalysesInputFiles', lazy='select', cascade="all, delete-orphan")
+    input_files = db.relationship('AssociationAnalysesInputFiles', lazy='dynamic', cascade="all, delete-orphan")
 
     # many-to-one relationship
     # one analysis can contain many output file, one file can only be output of one analysis
-    output_files = db.relationship('AssociationAnalysesOutputFiles', lazy='select', cascade="all, delete-orphan")
+    output_files = db.relationship('AssociationAnalysesOutputFiles', lazy='dynamic', cascade="all, delete-orphan")
 
     def __init__(self, user_id, pipeline_id, pipeline_uid):
         self.user_id = user_id
