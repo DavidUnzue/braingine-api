@@ -5,13 +5,16 @@
     module for long running tasks
 """
 import os, magic
-from flask import current_app
+from flask import current_app, g
 from . import celery
 from .utils import connect_ssh, read_dir, write_file_in_chunks
 # Import db instance
 from . import db
-from .models.experiment import Analysis, Visualization, Experiment, ExperimentFile, AssociationAnalysesOutputFiles
+from .models.analysis import Analysis, AssociationAnalysesOutputFiles
+from .models.visualization import Visualization
+from .models.file import ExperimentFile
 from .models.plot import Plot
+from .models.user import User
 # celery logger
 from celery.utils.log import get_task_logger
 from celery import states as celery_states
@@ -61,16 +64,15 @@ class BaseTask(celery.Task):
 class AnalysisTask(BaseTask):
     def on_failure(self, exc, task_id, args, kwargs, einfo):
         # update analysis status
-        experiment_analysis_id = kwargs['analysis_id']
-        experiment_analysis = Analysis.query.get(experiment_analysis_id)
-        experiment_analysis.state = celery_states.FAILURE
-        db.session.add(experiment_analysis)
+        analysis = Analysis.query.get(kwargs['analysis_id'])
+        analysis.state = celery_states.FAILURE
+        db.session.add(analysis)
         db.session.commit()
 
-        # retrieve experiment info and folder to write output files to
-        experiment = Experiment.query.get(experiment_analysis.experiment_id)
-        experiment_folder = os.path.join(current_app.config.get('SYMLINK_TO_DATA_STORAGE'), experiment.sha)
-        analysis_folder = os.path.join(experiment_folder, current_app.config.get('ANALYSES_FOLDER'), str(experiment_analysis.id))
+        # retrieve folder to write output files to
+        user = g.user
+        user_folder = os.path.join(current_app.config.get('SYMLINK_TO_DATA_STORAGE'), user.username)
+        analysis_folder = os.path.join(user_folder, current_app.config.get('ANALYSES_FOLDER'), str(analysis.id))
 
         # write stdout to file
         write_file_in_chunks(analysis_folder, "log.out", exc.stdout)
@@ -83,16 +85,14 @@ class AnalysisTask(BaseTask):
 
     def on_success(self, retval, task_id, args, kwargs):
         # update analysis status
-        experiment_analysis_id = kwargs['analysis_id']
-        experiment_analysis = Analysis.query.get(experiment_analysis_id)
-        experiment_analysis.state = celery_states.SUCCESS
-        db.session.add(experiment_analysis)
+        analysis = Analysis.query.get(kwargs['analysis_id'])
+        analysis.state = celery_states.SUCCESS
+        db.session.add(analysis)
 
-        # retrieve experiment info and folder to write output files to
-        experiment = Experiment.query.get(experiment_analysis.experiment_id)
-        experiment_folder = os.path.join(current_app.config.get('EXPERIMENTS_FOLDER'), experiment.sha)
-        analysis_folder = os.path.join(experiment_folder, current_app.config.get('ANALYSES_FOLDER'), str(experiment_analysis.id))
-        analysis_folder_internal = os.path.join(current_app.config.get('DATA_ROOT_INTERNAL'), analysis_folder)
+        user = User.query.get(analysis.user_id)
+        user_folder = os.path.join(current_app.config.get('DATA_FOLDER'), user.username)
+        analysis_folder = os.path.join(user_folder, current_app.config.get('ANALYSES_FOLDER'), str(analysis.id))
+        analysis_folder_internal = os.path.join(current_app.config.get('BRAINGINE_ROOT'), analysis_folder)
 
         # create dict to associate analysis output files to corresponding fieldnames in pipeline definition
         # this will just invert the key/value pairs within the original analysis_outputs dictionary
@@ -120,105 +120,34 @@ class AnalysisTask(BaseTask):
                 else:
                     continue
 
-                # remove internal root part (DATA_ROOT_INTERNAL) of path
-                clean_root = root[len(current_app.config.get('DATA_ROOT_INTERNAL')):]
-                # remove prefix slash
-                if (clean_root[0] == os.sep):
-                    clean_root = clean_root[1:]
+                # # remove internal root part (DATA_ROOT_INTERNAL) of path
+                # clean_root = root[len(current_app.config.get('BRAINGINE_ROOT')):]
+                # # remove prefix slash
+                # if (clean_root[0] == os.sep):
+                #     clean_root = clean_root[1:]
 
                 # path to the file in the storage server
-                file_path = os.path.join(clean_root, filename)
-                file_path_internal = os.path.join(root, filename)
+                file_path = os.path.join(root, filename)
+                # file_path_internal = os.path.join(root, filename)
 
                 # initialize file handle for magic file type detection
                 fh_magic = magic.Magic(magic_file=current_app.config.get('BIOINFO_MAGIC_FILE'), uncompress=True)
 
                 # get bioinformatic file type using magic
-                file_format_full = fh_magic.from_file(file_path_internal)
-                mime_type = magic.from_file(file_path_internal, mime=True)
+                file_format_full = fh_magic.from_file(file_path)
+                mime_type = magic.from_file(file_path, mime=True)
 
-                file_size = os.path.getsize(file_path_internal)
+                file_size = os.path.getsize(file_path)
 
                 # create file object and add to DB
-                new_file = ExperimentFile(experiment_id=experiment.id, size_in_bytes=file_size, name=filename, path=file_path, mime_type=mime_type, file_format_full=file_format_full, folder=experiment.sha)
+                new_file = ExperimentFile(user_id=user.id, size_in_bytes=file_size, name=filename, path=file_path, mime_type=mime_type, file_format_full=file_format_full)
                 db.session.add(new_file)
 
                 # link file to analysis output
                 analysis_output_file_assoc = AssociationAnalysesOutputFiles(pipeline_fieldname=pipeline_fieldname)
                 analysis_output_file_assoc.output_file = new_file
-                experiment_analysis.output_files.append(analysis_output_file_assoc)
+                analysis.output_files.append(analysis_output_file_assoc)
 
-        db.session.commit()
-
-    def after_return(self, status, retval, task_id, args, kwargs, einfo):
-        # # update analysis status
-        # experiment_analysis_id = kwargs['analysis_id']
-        # experiment_analysis = Analysis.query.get(experiment_analysis_id)
-        # experiment_analysis.state = status
-        # db.session.add(experiment_analysis)
-        # db.session.commit()
-        pass
-
-
-class VisualizationTask(BaseTask):
-    def on_failure(self, exc, task_id, args, kwargs, einfo):
-        # update status
-        visualization_id = kwargs['visualization_id']
-        visualization = Analysis.query.get(visualization_id)
-        visualization.state = celery_states.FAILURE
-        db.session.add(visualization)
-        db.session.commit()
-
-        # retrieve experiment info and folder to write output files to
-        experiment = Experiment.query.get(visualization.experiment_id)
-        experiment_folder = os.path.join(current_app.config.get('SYMLINK_TO_DATA_STORAGE'), experiment.sha)
-        visualization_folder = os.path.join(experiment_folder, current_app.config.get('VISUALIZATIONS_FOLDER'), str(visualization.id))
-
-        # write stdout to file
-        write_file_in_chunks(visualization_folder, "log.out", exc.stdout)
-
-        # write stderr to file
-        write_file_in_chunks(visualization_folder, "error.out", exc.stderr)
-
-        # call method on parent class
-        super(VisualizationTask, self).on_failure(exc, task_id, args, kwargs, einfo)
-
-    def on_success(self, retval, task_id, args, kwargs):
-        # update visualization status
-        visualization_id = kwargs['visualization_id']
-        visualization = Visualization.query.get(visualization_id)
-        visualization.state = celery_states.SUCCESS
-        db.session.add(visualization)
-
-        # build output folder structure
-        experiment = Experiment.query.get(visualization.experiment_id)
-        root = current_app.config.get('DATA_ROOT_EXTERNAL')
-        root_internal = current_app.config.get('DATA_ROOT_INTERNAL')
-        experiment_folder = os.path.join(current_app.config.get('EXPERIMENTS_FOLDER'), experiment.sha)
-        visualization_folder = os.path.join(experiment_folder, current_app.config.get('VISUALIZATIONS_FOLDER'), str(visualization.id))
-
-        file_path = os.path.join(root, visualization_folder, plot.output_filename, '.html')
-        file_path_internal = os.path.join(root_internal, visualization_folder, plot.output_filename, '.html')
-
-
-        plot = Plot.query.get(kwargs['plot_id'])
-
-
-        file_size = os.path.getsize(file_path_internal)
-        # initialize file handle for magic file type detection
-        fh_magic = magic.Magic(magic_file=current_app.config.get('BIOINFO_MAGIC_FILE'))
-
-        # get bioinformatic file type using magic
-        file_format_full = fh_magic.from_file(file_path_internal)
-        mime_type = magic.from_file(file_path_internal, mime=True)
-
-        # create file object and add to DB
-        new_file = ExperimentFile(experiment_id=experiment.id, size_in_bytes=file_size, name=filename, path=file_path, mime_type=mime_type, file_format_full=file_format_full, folder=experiment.sha)
-
-        db.session.add(new_file)
-        db.session.flush()
-        # link file to visualization output
-        visualization.output_file_id = new_file.id
         db.session.commit()
 
 
@@ -239,8 +168,150 @@ def run_analysis(command, **kwargs):
     return kwargs['analysis_id']
 
 
+class VisualizationTask(BaseTask):
+    def on_failure(self, exc, task_id, args, kwargs, einfo):
+        # update status
+        visualization_id = kwargs['visualization_id']
+        visualization = Analysis.query.get(visualization_id)
+        visualization.state = celery_states.FAILURE
+        db.session.add(visualization)
+        db.session.commit()
+
+        # retrieve experiment info and folder to write output files to
+        user = g.user
+        user_folder = os.path.join(current_app.config.get('SYMLINK_TO_DATA_STORAGE'), user.username)
+        visualization_folder = os.path.join(user_folder, current_app.config.get('VISUALIZATIONS_FOLDER'), str(visualization.id))
+
+        # write stdout to file
+        write_file_in_chunks(visualization_folder, "log.out", exc.stdout)
+
+        # write stderr to file
+        write_file_in_chunks(visualization_folder, "error.out", exc.stderr)
+
+        # call method on parent class
+        super(VisualizationTask, self).on_failure(exc, task_id, args, kwargs, einfo)
+
+    def on_success(self, retval, task_id, args, kwargs):
+        # update visualization status
+        visualization_id = kwargs['visualization_id']
+        visualization = Visualization.query.get(visualization_id)
+        visualization.state = celery_states.SUCCESS
+        db.session.add(visualization)
+
+        user = User.query.get(visualization.user_id)
+        user_folder = os.path.join(current_app.config.get('DATA_FOLDER'), user.username)
+        visualization_folder = os.path.join(user_folder, current_app.config.get('VISUALIZATIONS_FOLDER'), str(visualization.id))
+        visualization_folder_internal = os.path.join(current_app.config.get('BRAINGINE_ROOT'), visualization_folder)
+
+        plot = Plot.query.get(kwargs['plot_id'])
+        visualization_file = os.path.join(visualization_folder, plot.output_filename, '.html')
+
+        # create DB entries for each analysis output file
+        for root, subdirs, files in os.walk(visualization_folder_internal):
+            # read analysis files in directory
+            for filename in files:
+                # remove internal root part (DATA_ROOT_INTERNAL) of path
+                # clean_root = root[len(current_app.config.get('DATA_ROOT_INTERNAL')):]
+                # # remove prefix slash
+                # if (clean_root[0] == os.sep):
+                #     clean_root = clean_root[1:]
+
+                file_path = os.path.join(root, filename)
+                file_size = os.path.getsize(file_path)
+                # initialize file handle for magic file type detection
+                fh_magic = magic.Magic(magic_file=current_app.config.get('BIOINFO_MAGIC_FILE'))
+
+                # get bioinformatic file type using magic
+                file_format_full = fh_magic.from_file(file_path)
+                mime_type = magic.from_file(file_path, mime=True)
+
+                # create file object and add to DB
+                new_file = ExperimentFile(user_id=user.id, size_in_bytes=file_size, name=filename, path=file_path, mime_type=mime_type, file_format_full=file_format_full)
+                db.session.add(new_file)
+                db.session.flush()
+
+                # link file to visualization output
+                visualization.output_file_id = new_file.id
+
+        db.session.commit()
+
+
+class IlluminaImportTask(BaseTask):
+    def on_failure(self, exc, task_id, args, kwargs, einfo):
+        # update status
+        visualization_id = kwargs['visualization_id']
+        visualization = Analysis.query.get(visualization_id)
+        visualization.state = celery_states.FAILURE
+        db.session.add(visualization)
+        db.session.commit()
+
+        # retrieve folder to write output files to
+        user = g.user
+        user_folder = os.path.join(current_app.config.get('SYMLINK_TO_DATA_STORAGE'), user.username)
+        visualization_folder = os.path.join(user_folder, current_app.config.get('VISUALIZATIONS_FOLDER'), str(visualization.id))
+
+        # write stdout to file
+        write_file_in_chunks(visualization_folder, "log.out", exc.stdout)
+
+        # write stderr to file
+        write_file_in_chunks(visualization_folder, "error.out", exc.stderr)
+
+        # call method on parent class
+        super(VisualizationTask, self).on_failure(exc, task_id, args, kwargs, einfo)
+
+    def on_success(self, retval, task_id, args, kwargs):
+        # update visualization status
+        visualization_id = kwargs['visualization_id']
+        visualization = Visualization.query.get(visualization_id)
+        visualization.state = celery_states.SUCCESS
+        db.session.add(visualization)
+
+        # retrieve folder to write output files to
+        user = g.user
+        user_folder = os.path.join(current_app.config.get('SYMLINK_TO_DATA_STORAGE'), user.username)
+        visualization_folder = os.path.join(user_folder, current_app.config.get('VISUALIZATIONS_FOLDER'), str(visualization.id))
+
+        file_path = os.path.join(root, visualization_folder, plot.output_filename, '.html')
+        file_path_internal = os.path.join(root_internal, visualization_folder, plot.output_filename, '.html')
+
+
+        plot = Plot.query.get(kwargs['plot_id'])
+
+
+        # create file object and add to DB
+        new_file = ExperimentFile(user_id=user.id, size_in_bytes=file_size, name=filename, path=file_path, mime_type=mime_type, file_format_full=file_format_full, folder=user.username)
+        db.session.add(new_file)
+        db.session.flush()
+
+        # create file object and add to DB
+        new_file = ExperimentFile(experiment_id=experiment.id, size_in_bytes=file_size, name=filename, path=file_path, mime_type=mime_type, file_format_full=file_format_full, folder=experiment.sha)
+
+        db.session.add(new_file)
+        db.session.flush()
+        # link file to visualization output
+        visualization.output_file_id = new_file.id
+        db.session.commit()
+
+
 @celery.task(base=VisualizationTask)
 def create_visualization(command, **kwargs):
+    ssh = connect_ssh(current_app.config.get('COMPUTING_SERVER_IP'), current_app.config.get('COMPUTING_SERVER_USER'), current_app.config.get('COMPUTING_SERVER_PASSWORD'))
+    stdin, stdout, stderr = ssh.exec_command(command)
+    print(command)
+    # print stdout
+    for line in stdout:
+        print(line.strip("\n"))
+    # exit code of pipeline script
+    exit_code = stdout.channel.recv_exit_status()
+    # if pipeline exits with error code (different than 0)
+    if exit_code != 0:
+        message = "The plot with id '{}' raised an error".format(kwargs['plot_id'])
+        raise PlotError(message, exit_code, stdout, stderr)
+    return kwargs['visualization_id']
+
+# TODO: finish this
+@celery.task(base=IlluminaImportTask)
+def import_illumina(command, **kwargs):
     ssh = connect_ssh(current_app.config.get('COMPUTING_SERVER_IP'), current_app.config.get('COMPUTING_SERVER_USER'), current_app.config.get('COMPUTING_SERVER_PASSWORD'))
     stdin, stdout, stderr = ssh.exec_command(command)
     print(command)

@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
 
-from flask import abort, current_app
+from flask import abort, current_app, g
 from flask.ext.restful import Resource
 from .auth import auth
 from server.models.user import User, UserSchema

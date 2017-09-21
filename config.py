@@ -15,16 +15,16 @@ class Config(object):
     SQLALCHEMY_TRACK_MODIFICATIONS = True
     # max. file size for uploaded file chunks per request
     #MAX_CONTENT_LENGTH = 8 * 1024 * 1024 # 8 MB
-    DATA_ROOT_EXTERNAL = '/storage/scic/Data/External/braingine'
+    BRAINGINE_ROOT = '/storage/scic/Data/External/braingine'
     DATA_ROOT_INTERNAL = './data'
-    ILLUMINA_ROOT_EXTERNAL = '/storage/scic/illuminanextseq'
-    ILLUMINA_ROOT_INTERNAL = './illumina'
-    ILLUMINA_DATA_FOLDER = 'raw_data'
+    ILLUMINA_ROOT = '/storage/scic/illuminanextseq/raw_data'
+    ILLUMINA_ROOT_INTERNAL = '/storage/scic/illuminanextseq/raw_data'
     ILLUMINA_FASTQ_FOLDER = 'fastq'
-    EXPERIMENTS_FOLDER = 'projects'
+    DATA_FOLDER = 'projects'
     SYMLINK_TO_DATA_STORAGE = './data/projects'
     # This is the path to the directory in the storage server where files will be uploaded to
     DATA_STORAGE = '/storage/scic/Data/External/braingine/projects'
+    SEND_FILE_FROM = DATA_STORAGE
     # path to directory within storage server where user files are located for alternative upload
     DATA_STORAGE_PREUPLOADS = '/storage/scic/Data/External/braingine/preuploads'
     SYMLINK_TO_DATA_STORAGE_PREUPLOADS = './data/preuploads'
@@ -78,6 +78,8 @@ class DevelopmentConfig(Config):
     ERROR_404_HELP = False
     SQLALCHEMY_DATABASE_URI = 'postgresql://localhost/braingine_dev'
 
+    # USE_X_SENDFILE = True
+    SEND_FILE_FROM = './storage/scic/Data/External/braingine/projects'
 
 class TestingConfig(Config):
     TESTING = True
