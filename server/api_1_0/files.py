@@ -128,16 +128,24 @@ class FileListController(Resource):
 class FileController(Resource):
     decorators = [auth.login_required]
 
-    def download_file(self, experiment_file, attachment=False):
+    def download_file(self, experiment_file, attachment=False, bytes_range=None):
         """Makes a Flask response with the corresponding content-type encoded body"""
         from flask import send_from_directory
         file_folder_path = os.path.dirname(os.path.abspath(experiment_file.path))
-        print(file_folder_path)
+        # read only specific bytes-range
+        if bytes_range:
+            start, end = bytes_range.split('=')[1].split('-')
+            buffer_size = end - start
+            with open(os.path.join(file_folder_path,experiment_file.name),"rb") as file_object:
+                file_object.seek(start) # set file pointer to start of range
+                file_data = file_object.read(buffer_size)
+            return file_data, 206
         return send_from_directory(file_folder_path, experiment_file.name, mimetype=experiment_file.mime_type, as_attachment=attachment)
 
     @use_args({
         'alt': fields.Str(location='querystring', missing=''), # return file contents with 'alt=media'
-        'download': fields.Boolean(location='querystring', missing=False) # force download or not
+        'download': fields.Boolean(location='querystring', missing=False), # force download or not
+        'range': fields.Str(load_from='Range', location='headers', missing=None)
     })
     def get(self, args, file_id):
         single_file = ExperimentFile.query.get(file_id)
@@ -145,7 +153,7 @@ class FileController(Resource):
             abort(404, "File {} doesn't exist".format(file_id))
         # return file contents if 'alt=media' in querystring
         if args['alt'] == 'media':
-            return self.download_file(single_file, args['download'])
+            return self.download_file(single_file, args['download'], args['range'])
         # return only file's metadata as json
         else:
             result = experiment_file_schema.dump(single_file).data
