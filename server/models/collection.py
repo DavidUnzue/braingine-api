@@ -4,7 +4,7 @@ import os
 from ..utils import silent_remove
 from .base import Base, BaseSchema
 from .user import User
-from .file import ExperimentFile
+from .file import ExperimentFile, ExperimentFileSchema
 from marshmallow import fields
 
 
@@ -24,7 +24,8 @@ class Collection(Base):
     files = db.relationship(
         "ExperimentFile",
         secondary=association_collection_to_file,
-        backref="collections")
+        backref="collections",
+        lazy='dynamic')
 
     # constructor
     def __init__(self, user_id, name, description):
@@ -41,8 +42,9 @@ class CollectionSchema(BaseSchema):
     user_id = fields.Int(dump_only=True)
     name = fields.Str()
     description = fields.Str(allow_none=True)
+    files = fields.List(fields.Int(), load_only=True) # list of file ids
     # a collection that contains files which are all within the same directory will contain the path to that dir
-    path = fields.Str(allow_none=True)
+    # path = fields.Str(allow_none=True)
 
     class Meta:
         strict = True

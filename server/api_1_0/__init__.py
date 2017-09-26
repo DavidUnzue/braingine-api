@@ -14,7 +14,7 @@ api.add_resource(files.FileListController, '/files/')
 api.add_resource(files.FileController, '/files/<int:file_id>')
 # collection
 api.add_resource(collections.CollectionListController, '/collections/')
-api.add_resource(collections.CollectionController, '/collections/<int:experiment_id>')
+api.add_resource(collections.CollectionController, '/collections/<int:collection_id>')
 # collection-specific files
 api.add_resource(collections.CollectionFileListController, '/collections/<int:collection_id>/files/')
 api.add_resource(collections.CollectionFileController, '/collections/<int:collection_id>/files/<int:file_id>')
