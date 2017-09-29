@@ -70,8 +70,8 @@ class AnalysisTask(BaseTask):
         db.session.commit()
 
         # retrieve folder to write output files to
-        user = g.user
-        user_folder = os.path.join(current_app.config.get('SYMLINK_TO_DATA_STORAGE'), user.username)
+        user = User.query.get(analysis.user_id)
+        user_folder = os.path.join(current_app.config.get('DATA_STORAGE'), user.username)
         analysis_folder = os.path.join(user_folder, current_app.config.get('ANALYSES_FOLDER'), str(analysis.id))
 
         # write stdout to file
@@ -172,14 +172,14 @@ class VisualizationTask(BaseTask):
     def on_failure(self, exc, task_id, args, kwargs, einfo):
         # update status
         visualization_id = kwargs['visualization_id']
-        visualization = Analysis.query.get(visualization_id)
+        visualization = Visualization.query.get(visualization_id)
         visualization.state = celery_states.FAILURE
         db.session.add(visualization)
         db.session.commit()
 
         # retrieve experiment info and folder to write output files to
-        user = g.user
-        user_folder = os.path.join(current_app.config.get('SYMLINK_TO_DATA_STORAGE'), user.username)
+        user = User.query.get(visualization.user_id)
+        user_folder = os.path.join(current_app.config.get('DATA_STORAGE'), user.username)
         visualization_folder = os.path.join(user_folder, current_app.config.get('VISUALIZATIONS_FOLDER'), str(visualization.id))
 
         # write stdout to file
@@ -247,7 +247,7 @@ class IlluminaImportTask(BaseTask):
 
         # retrieve folder to write output files to
         user = g.user
-        user_folder = os.path.join(current_app.config.get('SYMLINK_TO_DATA_STORAGE'), user.username)
+        user_folder = os.path.join(current_app.config.get('DATA_STORAGE'), user.username)
         visualization_folder = os.path.join(user_folder, current_app.config.get('VISUALIZATIONS_FOLDER'), str(visualization.id))
 
         # write stdout to file
@@ -268,7 +268,7 @@ class IlluminaImportTask(BaseTask):
 
         # retrieve folder to write output files to
         user = g.user
-        user_folder = os.path.join(current_app.config.get('SYMLINK_TO_DATA_STORAGE'), user.username)
+        user_folder = os.path.join(current_app.config.get('DATA_STORAGE'), user.username)
         visualization_folder = os.path.join(user_folder, current_app.config.get('VISUALIZATIONS_FOLDER'), str(visualization.id))
 
         file_path = os.path.join(root, visualization_folder, plot.output_filename, '.html')
