@@ -127,10 +127,13 @@ class CollectionController(Resource):
         collection = Collection.query.get(collection_id)
         if not collection:
             abort(404, "Collection {} doesn't exist".format(collection_id))
+
+        collection_files = args['files']
+        del args['files']
         update_object(collection, args)
 
-        if len(args['files']) > 0:
-            for fileId in args['files']:
+        if len(collection_files) > 0:
+            for fileId in collection_files:
                 currentFile = ExperimentFile.query.get(fileId)
                 collection.files.append(currentFile)
 
