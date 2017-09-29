@@ -121,6 +121,6 @@ def remove_directory_after_delete(mapper, connection, target):
     Remove analysis directory from filesystem after analysis row gets deleted in database
     """
     user = User.query.get(target.user_id)
-    user_folder = os.path.join(current_app.config.get('SYMLINK_TO_DATA_STORAGE'), user.username)
+    user_folder = os.path.join(current_app.config.get('DATA_STORAGE'), user.username)
     analysis_folder = os.path.join(user_folder, current_app.config.get('ANALYSES_FOLDER'), str(target.id))
     silent_remove(analysis_folder)
