@@ -35,7 +35,7 @@ class VisualizationListController(Resource):
         """
         Build filename for given plot
         """
-        plot_definition_file_path = os.path.join(current_app.config.get('PLOTS_FOLDER'), plot_uid, '{}.json'.format(plot_uid))
+        plot_definition_file_path = os.path.join(current_app.config.get('PLOTS_STORAGE'), plot_uid, '{}.json'.format(plot_uid))
         return plot_definition_file_path
 
     def _load_plot_definition(self, plot_uid):
@@ -147,7 +147,7 @@ class VisualizationListController(Resource):
         # =====
         # CREATE VISUALIZATION OUTPUT FOLDER
         # =====
-        create_folder(os.path.join(current_app.config.get('SYMLINK_TO_DATA_STORAGE'), user.username, current_app.config.get('VISUALIZATIONS_FOLDER'), str(experiment_visualization.id)))
+        create_folder(os.path.join(current_app.config.get('DATA_STORAGE'), user.username, current_app.config.get('VISUALIZATIONS_FOLDER'), str(experiment_visualization.id)))
 
 
         # =====

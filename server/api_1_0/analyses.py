@@ -42,7 +42,7 @@ class AnalysisListController(Resource):
         """
         Build filename for given pipeline
         """
-        pipeine_definition_file_path = os.path.join(current_app.config.get('PIPELINES_FOLDER'), pipeline_uid, '{}.json'.format(pipeline_uid))
+        pipeine_definition_file_path = os.path.join(current_app.config.get('PIPELINES_STORAGE'), pipeline_uid, '{}.json'.format(pipeline_uid))
         return pipeine_definition_file_path
 
     def load_pipeline_definition(self, pipeline_uid):
@@ -57,7 +57,7 @@ class AnalysisListController(Resource):
     def store_pipeline(self, pipeline_uid):
         # serialize pipeline definition file
         pipeline_definition = self.load_pipeline_definition(pipeline_uid)
-
+        print(pipeline_definition)
         # get needed pipeline fields
         pipeline_uid = pipeline_definition['uid']
         pipeline_filename = pipeline_definition['filename']
@@ -180,7 +180,7 @@ class AnalysisListController(Resource):
         # =====
         # CREATE ANALYSIS OUTPUT FOLDER
         # =====
-        create_folder(os.path.join(current_app.config.get('SYMLINK_TO_DATA_STORAGE'), user.username, current_app.config.get('ANALYSES_FOLDER'), str(experiment_analysis.id)))
+        create_folder(os.path.join(current_app.config.get('DATA_STORAGE'), user.username, current_app.config.get('ANALYSES_FOLDER'), str(experiment_analysis.id)))
 
 
         # =====

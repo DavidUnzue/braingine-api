@@ -12,7 +12,7 @@ pipeline_schema = PipelineSchema()
 
 class PipelineListController(Resource):
     def get(self):
-        pipelines_folder = current_app.config.get('PIPELINES_FOLDER')
+        pipelines_folder = current_app.config.get('PIPELINES_STORAGE')
         # get json files (pipeline definition files) from pipelines folders
         pipeline_files = glob.glob(os.path.join(pipelines_folder, '**/*.json'), recursive=True)
 
@@ -29,7 +29,7 @@ class PipelineListController(Resource):
 class PipelineController(Resource):
     def get(self, pipeline_uid):
 
-        pipeine_definition_file_path = os.path.join(current_app.config.get('PIPELINES_FOLDER'), pipeline_uid, '{}.json'.format(pipeline_uid))
+        pipeine_definition_file_path = os.path.join(current_app.config.get('PIPELINES_STORAGE'), pipeline_uid, '{}.json'.format(pipeline_uid))
 
         try:
             with open(pipeine_definition_file_path) as pipeline_definition_file:

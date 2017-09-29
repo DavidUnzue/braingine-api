@@ -97,39 +97,6 @@ class CollectionListController(Resource):
             abort(404, "Error creating collection \"{}\"".format(args['name']))
 
         result = collection_schema.dump(collection, many=False).data
-
-        # collection_name = args['name']
-        # # abort if collection with same name already exists
-        # it_exists = Collection.query.filter_by(name=collection_name).first()
-        # if(it_exists):
-        #     abort(404, "Error: an collection already exists with the name \"{}\"".format(collection_name))
-        #
-        # # setup folders for project data
-        # project_folder = os.path.join(current_app.config.get('SYMLINK_TO_DATA_STORAGE'), sha1_string(collection_name))
-        # uploads_folder = os.path.join(project_folder, current_app.config.get('UPLOADS_FOLDER'))
-        # analyses_folder = os.path.join(project_folder, current_app.config.get('ANALYSES_FOLDER'))
-        #
-        # try:
-        #     collection = Collection(user_id=g.user.id, **args)
-        #     db.session.add(collection)
-        #     db.session.commit()
-        # except SQLAlchemyError:
-        #     abort(404, "Error creating collection \"{}\"".format(collection_name))
-        #
-        # try:
-        #     create_folder(project_folder)
-        #     create_folder(uploads_folder)
-        #     create_folder(analyses_folder)
-        # except OSError as err:
-        #     try:
-        #         db.session.delete(collection)
-        #         db.session.commit()
-        #         silent_remove(project_folder)
-        #     finally:
-        #         abort(404, "Error creating collection's directory structure on storage service: {}".format(err))
-        #
-        #
-        # result = collection_schema.dump(collection, many=False).data
         return result, 201
 
 class CollectionController(Resource):
@@ -161,8 +128,18 @@ class CollectionController(Resource):
         if not collection:
             abort(404, "Collection {} doesn't exist".format(collection_id))
         update_object(collection, args)
-        db.session.add(collection)
-        db.session.commit()
+
+        if len(args['files']) > 0:
+            for fileId in args['files']:
+                currentFile = ExperimentFile.query.get(fileId)
+                collection.files.append(currentFile)
+
+        try:
+            db.session.add(collection)
+            db.session.commit()
+        except SQLAlchemyError:
+            abort(404, "Error updating collection \"{}\"".format(args['name']))
+
         result = collection_schema.dump(collection).data
         return result, 200
 

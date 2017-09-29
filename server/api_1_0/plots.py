@@ -13,7 +13,7 @@ plot_schema = PlotSchema()
 class PlotListController(Resource):
     def get(self):
         # get json files (plot definition files) from plots folder
-        plot_files = glob.glob(os.path.join(current_app.config.get('PLOTS_FOLDER'), '**/*.json'), recursive=True)
+        plot_files = glob.glob(os.path.join(current_app.config.get('PLOTS_STORAGE'), '**/*.json'), recursive=True)
 
         plot_definition_list = list()
         for plot_file in plot_files:
@@ -28,7 +28,7 @@ class PlotListController(Resource):
 class PlotController(Resource):
     def get(self, plot_uid):
 
-        plot_definition_file_path = os.path.join(current_app.config.get('PLOTS_FOLDER'), plot_uid, '{}.json'.format(plot_uid))
+        plot_definition_file_path = os.path.join(current_app.config.get('PLOTS_STORAGE'), plot_uid, '{}.json'.format(plot_uid))
 
         try:
             with open(plot_definition_file_path) as plot_definition_file:
