@@ -17,8 +17,8 @@ class Config(object):
     #MAX_CONTENT_LENGTH = 8 * 1024 * 1024 # 8 MB
     BRAINGINE_ROOT = '/storage/scic/Data/External/braingine'
     DATA_ROOT_INTERNAL = './data'
-    ILLUMINA_ROOT = '/storage/scic/illuminanextnextseq/raw_data'
-    ILLUMINA_ROOT_INTERNAL = '/storage/scic/illuminanextnextseq/raw_data'
+    ILLUMINA_ROOT = '/storage/scic/illuminanextseq/raw_data'
+    ILLUMINA_ROOT_INTERNAL = '/storage/scic/illuminanextseq/raw_data'
     ILLUMINA_FASTQ_FOLDER = 'fastq'
     DATA_FOLDER = 'projects'
     SYMLINK_TO_DATA_STORAGE = './data/projects'

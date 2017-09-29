@@ -53,7 +53,9 @@ class FileListController(Resource):
             experiment_files_query = experiment_files_query.distinct()
         if args['sort_by'] and args['order']:
             sort = "{} {}".format(args['sort_by'], args['order'])
-            experiment_files_query = experiment_files_query.order_by(text(sort))
+        else:
+            sort = "updated_at desc"
+        experiment_files_query = experiment_files_query.order_by(text(sort))
 
         # create pagination
         page = args['page']
