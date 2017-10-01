@@ -42,11 +42,22 @@ def verify_password(username, password):
     user_search = con.search_s(current_app.config.get('LDAP_BASE_DN'), ldap.SCOPE_SUBTREE, user_search_filter, ['sAMAccountName','displayName','mail','primaryGroupID','memberOf',])
 
     # get inforamtion from found user
-    username = user_search[0][1]['sAMAccountName'][0].decode("utf-8")
-    fullname = user_search[0][1]['displayName'][0].decode("utf-8")
-    user_email = user_search[0][1]['mail'][0].decode("utf-8")
-    primary_group_id = user_search[0][1]['primaryGroupID'][0].decode("utf-8")
-    groups = user_search[0][1]['memberOf']
+    try:
+        fullname = user_search[0][1]['displayName'][0].decode("utf-8")
+    except KeyError:
+        fullname = None
+    try:
+        user_email = user_search[0][1]['mail'][0].decode("utf-8")
+    except KeyError:
+        user_email = None
+    try:
+        primary_group_id = user_search[0][1]['primaryGroupID'][0].decode("utf-8")
+    except KeyError:
+        primary_group_id = None
+    # try:
+    #     groups = user_search[0][1]['memberOf']
+    # except KeyError:
+    #     groups = None
     # assign user to a group based on primaryGroupID
     # if (primary_group_id == get_group_token(con, 'SCHU')):
     # elif (primary_group_id == get_group_token(con, 'LAUR')):

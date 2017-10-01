@@ -81,8 +81,9 @@ def store_file_upload(filename, user):
 
 def store_illumina_file(filename, folder_uid, user):
     file_path = os.path.join(current_app.config.get('ILLUMINA_ROOT'), folder_uid, current_app.config.get('ILLUMINA_FASTQ_FOLDER'), filename)
+    # path in braingine folder
     file_path_internal = os.path.join(current_app.config.get('BRAINGINE_ROOT'), current_app.config.get('DATA_FOLDER'), user.username, current_app.config.get('UPLOADS_FOLDER'), filename)
-
+    # create symlink from rbaingine folder to storage server
     os.symlink(file_path, file_path_internal)
 
     # initialize file handle for magic file type detection

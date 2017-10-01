@@ -16,8 +16,8 @@ class User(Base):
     __tablename__ = 'users'
 
     username = db.Column(db.String(32), index=True, unique=True, nullable=False)
-    fullname = db.Column(db.String(50), nullable=False)
-    email = db.Column(db.String(200), nullable=False)
+    fullname = db.Column(db.String(50), nullable=True)
+    email = db.Column(db.String(200), nullable=True)
     groups = db.relationship("UserGroup",
                     secondary=association_user_to_user_group)
 
