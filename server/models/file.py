@@ -31,7 +31,7 @@ class ExperimentFile(Base):
     is_upload = db.Column(db.Boolean, nullable=False, default=False)
 
     # set of annotation information
-    annotation = db.Column(JSON, nullable=True, default=None)
+    annotation = db.Column(JSON(none_as_null=True), nullable=True)
 
     # constructor
     def __init__(self, user_id, size_in_bytes, name, path, mime_type, file_format_full, is_upload=False, parent=None, display_name=None):
