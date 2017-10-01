@@ -61,40 +61,43 @@ def create_projection(resource_query, projection_args):
 
 
 def store_file_upload(filename, user):
-        file_path = os.path.join(current_app.config.get('BRAINGINE_ROOT'), current_app.config.get('DATA_FOLDER'), user.username, current_app.config.get('UPLOADS_FOLDER'), filename)
-        # initialize file handle for magic file type detection
-        fh_magic = magic.Magic(magic_file=current_app.config.get('BIOINFO_MAGIC_FILE'), uncompress=True)
-        # get bioinformatic file type using magic
-        file_format_full = fh_magic.from_file(file_path)
-        # get mimetype of file using magic
-        mimetype = magic.from_file(file_path, mime=True)
-        # get file size
-        file_stats = os.stat(file_path)
-        file_size = file_stats.st_size
+    file_path = os.path.join(current_app.config.get('BRAINGINE_ROOT'), current_app.config.get('DATA_FOLDER'), user.username, current_app.config.get('UPLOADS_FOLDER'), filename)
+    # initialize file handle for magic file type detection
+    fh_magic = magic.Magic(magic_file=current_app.config.get('BIOINFO_MAGIC_FILE'), uncompress=True)
+    # get bioinformatic file type using magic
+    file_format_full = fh_magic.from_file(file_path)
+    # get mimetype of file using magic
+    mimetype = magic.from_file(file_path, mime=True)
+    # get file size
+    file_stats = os.stat(file_path)
+    file_size = file_stats.st_size
 
-        experimentFile = ExperimentFile(user_id=user.id, size_in_bytes=file_size, name=filename, path=file_path, mime_type=mimetype, file_format_full=file_format_full, is_upload=True)
-        db.session.add(experimentFile)
-        db.session.commit()
+    experimentFile = ExperimentFile(user_id=user.id, size_in_bytes=file_size, name=filename, path=file_path, mime_type=mimetype, file_format_full=file_format_full, is_upload=True)
+    db.session.add(experimentFile)
+    db.session.commit()
 
-        return experimentFile
+    return experimentFile
 
 
 def store_illumina_file(filename, folder_uid, user):
-        file_path = os.path.join(current_app.config.get('ILLUMINA_ROOT'), folder_uid, current_app.config.get('ILLUMINA_FASTQ_FOLDER'), filename)
-        file_path_internal = os.path.join(current_app.config.get('ILLUMINA_ROOT_INTERNAL'), folder_uid, current_app.config.get('ILLUMINA_FASTQ_FOLDER'), filename)
-        # initialize file handle for magic file type detection
-        fh_magic = magic.Magic(magic_file=current_app.config.get('BIOINFO_MAGIC_FILE'), uncompress=True)
-        # get bioinformatic file type using magic
-        file_format_full = fh_magic.from_file(file_path_internal)
-        # get mimetype of file using magic
-        mimetype = magic.from_file(file_path_internal, mime=True)
-        # get file size
-        file_stats = os.stat(file_path_internal)
-        file_size = file_stats.st_size
+    file_path = os.path.join(current_app.config.get('ILLUMINA_ROOT'), folder_uid, current_app.config.get('ILLUMINA_FASTQ_FOLDER'), filename)
+    file_path_internal = os.path.join(current_app.config.get('BRAINGINE_ROOT'), current_app.config.get('DATA_FOLDER'), user.username, current_app.config.get('UPLOADS_FOLDER'), filename)
+
+    os.symlink(file_path, file_path_internal)
+
+    # initialize file handle for magic file type detection
+    fh_magic = magic.Magic(magic_file=current_app.config.get('BIOINFO_MAGIC_FILE'), uncompress=True)
+    # get bioinformatic file type using magic
+    file_format_full = fh_magic.from_file(file_path)
+    # get mimetype of file using magic
+    mimetype = magic.from_file(file_path, mime=True)
+    # get file size
+    file_stats = os.stat(file_path)
+    file_size = file_stats.st_size
 
 
-        experimentFile = ExperimentFile(user_id=user.id, size_in_bytes=file_size, name=filename, path=file_path, mime_type=mimetype, file_format_full=file_format_full, is_upload=True)
-        db.session.add(experimentFile)
-        db.session.commit()
+    experimentFile = ExperimentFile(user_id=user.id, size_in_bytes=file_size, name=filename, path=file_path_internal, mime_type=mimetype, file_format_full=file_format_full, is_upload=True)
+    db.session.add(experimentFile)
+    db.session.commit()
 
-        return experimentFile
+    return experimentFile

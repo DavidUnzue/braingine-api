@@ -16,18 +16,14 @@ class Config(object):
     # max. file size for uploaded file chunks per request
     #MAX_CONTENT_LENGTH = 8 * 1024 * 1024 # 8 MB
     BRAINGINE_ROOT = '/storage/scic/Data/External/braingine'
-    DATA_ROOT_INTERNAL = './data'
     ILLUMINA_ROOT = '/storage/scic/illuminanextseq/raw_data'
-    ILLUMINA_ROOT_INTERNAL = '/storage/scic/illuminanextseq/raw_data'
     ILLUMINA_FASTQ_FOLDER = 'fastq'
     DATA_FOLDER = 'projects'
-    SYMLINK_TO_DATA_STORAGE = './data/projects'
     # This is the path to the directory in the storage server where files will be uploaded to
     DATA_STORAGE = '/storage/scic/Data/External/braingine/projects'
     SEND_FILE_FROM = DATA_STORAGE
     # path to directory within storage server where user files are located for alternative upload
     DATA_STORAGE_PREUPLOADS = '/storage/scic/Data/External/braingine/preuploads'
-    SYMLINK_TO_DATA_STORAGE_PREUPLOADS = './data/preuploads'
     # the folder within a project folder where the uploaded files will be stored
     UPLOADS_FOLDER = 'uploads'
     # the folder within a project folder where the results of an analysis will be stored
@@ -36,10 +32,9 @@ class Config(object):
     VISUALIZATIONS_FOLDER = 'visualizations'
     # pipelines location
     PIPELINES_STORAGE = '/storage/scic/Data/External/braingine/pipelines'
-    PIPELINES_FOLDER = './data/pipelines' # without trailing slash
     # plots location
     PLOTS_STORAGE = '/storage/scic/Data/External/braingine/plots'
-    PLOTS_FOLDER = './data/plots' # without trailing slash
+
     # These are the extension that we are accepting to be uploaded
     ALLOWED_EXTENSIONS = set(['txt','bam','bed','fasta','fa', 'fastq', 'fq', 'bz2', 'bz', 'gz'])
     BIOINFO_MAGIC_FILE = './resources/magic/bioinformatics'

@@ -84,7 +84,7 @@ class FileListController(Resource):
         # get user folder
         user_folder = user.username
 
-        input_file_path = os.path.join(current_app.config.get('SYMLINK_TO_DATA_STORAGE_PREUPLOADS'), args['temp_filename'])
+        input_file_path = os.path.join(current_app.config.get('DATA_STORAGE_PREUPLOADS'), args['temp_filename'])
 
         output_file_path = os.path.join(current_app.config.get('BRAINGINE_ROOT'), current_app.config.get('DATA_FOLDER'), user_folder, current_app.config.get('UPLOADS_FOLDER'), filename)
 

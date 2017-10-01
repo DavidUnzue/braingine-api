@@ -102,6 +102,6 @@ def remove_directory_after_delete(mapper, connection, target):
     Remove visualization directory from filesystem after visualization row gets deleted in database
     """
     user = User.query.get(target.user_id)
-    user_folder = os.path.join(current_app.config.get('SYMLINK_TO_DATA_STORAGE'), user.username)
+    user_folder = os.path.join(current_app.config.get('DATA_STORAGE'), user.username)
     visualization_folder = os.path.join(user_folder, current_app.config.get('VISUALIZATIONS_FOLDER'), str(target.id))
     silent_remove(visualization_folder)

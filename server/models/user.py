@@ -42,7 +42,7 @@ def create_user_directory(mapper, connection, target):
     Create user directory in storage after new entry created in DB
     """
     # setup folders for project data
-    user_folder = os.path.join(current_app.config.get('SYMLINK_TO_DATA_STORAGE'), target.username)
+    user_folder = os.path.join(current_app.config.get('DATA_STORAGE'), target.username)
     uploads_folder = os.path.join(user_folder, current_app.config.get('UPLOADS_FOLDER'))
     analyses_folder = os.path.join(user_folder, current_app.config.get('ANALYSES_FOLDER'))
 

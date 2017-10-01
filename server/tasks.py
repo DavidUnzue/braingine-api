@@ -120,12 +120,6 @@ class AnalysisTask(BaseTask):
                 else:
                     continue
 
-                # # remove internal root part (DATA_ROOT_INTERNAL) of path
-                # clean_root = root[len(current_app.config.get('BRAINGINE_ROOT')):]
-                # # remove prefix slash
-                # if (clean_root[0] == os.sep):
-                #     clean_root = clean_root[1:]
-
                 # path to the file in the storage server
                 file_path = os.path.join(root, filename)
                 # file_path_internal = os.path.join(root, filename)
@@ -210,11 +204,6 @@ class VisualizationTask(BaseTask):
         for root, subdirs, files in os.walk(visualization_folder_internal):
             # read analysis files in directory
             for filename in files:
-                # remove internal root part (DATA_ROOT_INTERNAL) of path
-                # clean_root = root[len(current_app.config.get('DATA_ROOT_INTERNAL')):]
-                # # remove prefix slash
-                # if (clean_root[0] == os.sep):
-                #     clean_root = clean_root[1:]
 
                 file_path = os.path.join(root, filename)
                 file_size = os.path.getsize(file_path)

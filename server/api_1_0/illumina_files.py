@@ -14,7 +14,7 @@ class IlluminaFolderListController(Resource):
     decorators = [auth.login_required]
 
     def get(self):
-        raw_data_folder = current_app.config.get('ILLUMINA_ROOT_INTERNAL')
+        raw_data_folder = current_app.config.get('ILLUMINA_ROOT')
         # get list of illumina run folders
         illumina_folders = [f for f in os.listdir(raw_data_folder) if os.path.isdir(os.path.join(raw_data_folder, f))]
 
@@ -25,7 +25,7 @@ class IlluminaFolderFileListController(Resource):
     decorators = [auth.login_required]
 
     def get(self, folder_uid):
-        files_folder = os.path.join(current_app.config.get('ILLUMINA_ROOT_INTERNAL'), folder_uid, current_app.config.get('ILLUMINA_FASTQ_FOLDER'))
+        files_folder = os.path.join(current_app.config.get('ILLUMINA_ROOT'), folder_uid, current_app.config.get('ILLUMINA_FASTQ_FOLDER'))
         # get fastq files from specific illumina run folder
         illumina_files = glob.glob(os.path.join(files_folder, '*.fastq.gz'))
 
@@ -33,7 +33,7 @@ class IlluminaFolderFileListController(Resource):
 
     def post(self, folder_uid):
         user = g.user
-        files_folder = os.path.join(current_app.config.get('ILLUMINA_ROOT_INTERNAL'), folder_uid, current_app.config.get('ILLUMINA_FASTQ_FOLDER'))
+        files_folder = os.path.join(current_app.config.get('ILLUMINA_ROOT'), folder_uid, current_app.config.get('ILLUMINA_FASTQ_FOLDER'))
         # get fastq files from specific illumina run folder
         illumina_files = [f for f in os.listdir(files_folder) if os.path.isfile(os.path.join(files_folder, f)) and not f.startswith(".") and f.endswith('.fastq.gz')]
 

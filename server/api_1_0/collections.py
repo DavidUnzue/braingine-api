@@ -212,7 +212,7 @@ class CollectionFileController(Resource):
     def download_file(self, collection_file, attachment=False):
         """Makes a Flask response with the corresponding content-type encoded body"""
         from flask import send_from_directory
-        data_path = os.path.abspath(current_app.config.get('DATA_ROOT_INTERNAL'))
+        data_path = os.path.abspath(current_app.config.get('BRAINGINE_ROOT'))
         return send_from_directory(data_path, collection_file.path, mimetype=collection_file.mime_type, as_attachment=attachment)
 
 

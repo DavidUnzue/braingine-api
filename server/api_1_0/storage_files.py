@@ -11,6 +11,6 @@ class StorageFileListController(Resource):
         from os import listdir
         from os.path import isfile, join
         # get files from preuploads folder in storage server (ignore those starting with ".")
-        storage_files = [f for f in listdir(current_app.config.get('SYMLINK_TO_DATA_STORAGE_PREUPLOADS')) if isfile(join(current_app.config.get('SYMLINK_TO_DATA_STORAGE_PREUPLOADS'), f)) and not f.startswith(".")]
+        storage_files = [f for f in listdir(current_app.config.get('DATA_STORAGE_PREUPLOADS')) if isfile(join(current_app.config.get('DATA_STORAGE_PREUPLOADS'), f)) and not f.startswith(".")]
 
         return storage_files, 200
