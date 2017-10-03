@@ -102,3 +102,28 @@ def store_illumina_file(filename, folder_uid, user):
     db.session.commit()
 
     return experimentFile
+
+
+def store_storage_file(file_path, user):
+    filename = os.path.basename(file_path)
+    # path in braingine folder
+    file_path_internal = os.path.join(current_app.config.get('BRAINGINE_ROOT'), current_app.config.get('DATA_FOLDER'), user.username, current_app.config.get('UPLOADS_FOLDER'), filename)
+    # create symlink from rbaingine folder to storage server
+    os.symlink(file_path, file_path_internal)
+
+    # initialize file handle for magic file type detection
+    fh_magic = magic.Magic(magic_file=current_app.config.get('BIOINFO_MAGIC_FILE'), uncompress=True)
+    # get bioinformatic file type using magic
+    file_format_full = fh_magic.from_file(file_path)
+    # get mimetype of file using magic
+    mimetype = magic.from_file(file_path, mime=True)
+    # get file size
+    file_stats = os.stat(file_path)
+    file_size = file_stats.st_size
+
+
+    experimentFile = ExperimentFile(user_id=user.id, size_in_bytes=file_size, name=filename, path=file_path_internal, mime_type=mimetype, file_format_full=file_format_full, is_upload=True)
+    db.session.add(experimentFile)
+    db.session.commit()
+
+    return experimentFile
