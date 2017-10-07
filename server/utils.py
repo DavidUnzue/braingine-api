@@ -43,7 +43,8 @@ def silent_remove(path):
                 pass
             else:
                 raise # re-raise exception if a different error occured
-
+        except PermissionError:
+            pass
 
 # http://stackoverflow.com/a/2656405
 def onerror(func, path, exc_info):
