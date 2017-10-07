@@ -2,7 +2,7 @@
 # -*- coding: utf-8 -*-
 
 import json, os
-from flask import current_app, g
+from flask import current_app, g, abort, request
 from flask.ext.restful import Resource
 from webargs import fields
 from webargs.flaskparser import use_args
@@ -20,7 +20,7 @@ class StorageFileListController(Resource):
         return storage_files, 200
 
     @use_args({
-        'file_path': fields.Str(location='headers', missing=None),
+        'file_path': fields.Str(missing=None),
     })
     def post(self, args):
         if args['file_path'] is None:

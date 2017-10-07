@@ -71,7 +71,7 @@ class DevelopmentConfig(Config):
     DEVELOPMENT = True
     DEBUG = True
     ERROR_404_HELP = False
-    SQLALCHEMY_DATABASE_URI = 'postgresql://localhost/braingine_dev'
+    SQLALCHEMY_DATABASE_URI = 'postgresql://localhost/braingine'
 
     # USE_X_SENDFILE = True
     SEND_FILE_FROM = './storage/scic/Data/External/braingine/projects'

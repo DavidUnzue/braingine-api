@@ -83,8 +83,12 @@ def store_illumina_file(filename, folder_uid, user):
     file_path = os.path.join(current_app.config.get('ILLUMINA_ROOT'), folder_uid, current_app.config.get('ILLUMINA_FASTQ_FOLDER'), filename)
     # path in braingine folder
     file_path_internal = os.path.join(current_app.config.get('BRAINGINE_ROOT'), current_app.config.get('DATA_FOLDER'), user.username, current_app.config.get('UPLOADS_FOLDER'), filename)
-    # create symlink from rbaingine folder to storage server
-    os.symlink(file_path, file_path_internal)
+
+    # create symlink from braingine folder to storage server
+    try:
+        os.symlink(file_path, file_path_internal)
+    except OSError:
+        file_path_internal = file_path
 
     # initialize file handle for magic file type detection
     fh_magic = magic.Magic(magic_file=current_app.config.get('BIOINFO_MAGIC_FILE'), uncompress=True)
@@ -108,8 +112,12 @@ def store_storage_file(file_path, user):
     filename = os.path.basename(file_path)
     # path in braingine folder
     file_path_internal = os.path.join(current_app.config.get('BRAINGINE_ROOT'), current_app.config.get('DATA_FOLDER'), user.username, current_app.config.get('UPLOADS_FOLDER'), filename)
-    # create symlink from rbaingine folder to storage server
-    os.symlink(file_path, file_path_internal)
+
+    # create symlink from braingine folder to storage server
+    try:
+        os.symlink(file_path, file_path_internal)
+    except OSError:
+        file_path_internal = file_path
 
     # initialize file handle for magic file type detection
     fh_magic = magic.Magic(magic_file=current_app.config.get('BIOINFO_MAGIC_FILE'), uncompress=True)
