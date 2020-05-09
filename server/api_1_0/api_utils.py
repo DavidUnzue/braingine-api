@@ -5,6 +5,30 @@ from .. import db
 from . import api
 
 
+def init_user(self, username, fullname, email, primary_group_id):
+    """
+    Creates all needed DB entries and dependencies for a user account for the first time
+
+    :param User user: a user model which should be initialized
+    """
+    # store user and group in DB if they do not exist already
+    user = User.query.filter_by(username=username).first()
+    user_group = UserGroup.query.filter_by(group_id=primary_group_id).first()
+    if user_group is None:
+        user_group = UserGroup(group_id=primary_group_id)
+    if user is None:
+        user = User(username=username, fullname=fullname, email=user_email)
+        user.groups.append(user_group)
+        db.session.add(user)
+    elif user_group not in user.groups:
+        # remove all user-group relations for this user and add new group(s)
+        del user.groups[:]
+        user.groups.append(user_group)
+    db.session.commit()
+
+    return user
+
+
 def create_pagination_header(self, paginated_resource, page, **args):
     """
     Creates a Link item in the HTTP response header with information to sibling pages

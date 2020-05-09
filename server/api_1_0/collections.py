@@ -102,11 +102,6 @@ class CollectionListController(Resource):
 class CollectionController(Resource):
     decorators = [auth.login_required]
 
-    # For a given file, return whether it's an allowed type or not
-    def is_allowed_file(self, filename):
-        return '.' in filename and \
-               filename.rsplit('.', 1)[1] in current_app.config.get('ALLOWED_EXTENSIONS')
-
     def get(self, collection_id):
         collection = Collection.query.get(collection_id)
         if not collection:

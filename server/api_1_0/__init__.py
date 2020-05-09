@@ -5,7 +5,7 @@ from flask.ext.restful import Api
 api_blueprint = Blueprint('api', __name__)
 api = Api(api_blueprint)
 
-from . import collections, analyses, pipelines, visualizations, plots, tasks, storage_files, users, files, auth, illumina_files
+from . import collections, analyses, pipelines, visualizations, plots, tasks, storage_files, users, files, auth, illumina_files, databox
 
 # API Endpoints
 
@@ -45,3 +45,7 @@ api.add_resource(users.UserListController, '/users/')
 api.add_resource(users.UserController, '/users/<user_id>')
 # login
 api.add_resource(auth.LoginController, '/login/')
+
+#databox
+api.add_resource(databox.DataboxController, '/databox/')
+api.add_resource(databox.DataBoxFileListController, '/databox/files/')

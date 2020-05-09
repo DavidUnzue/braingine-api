@@ -5,6 +5,7 @@ from flask.ext.httpauth import HTTPBasicAuth
 from flask.ext.restful import Resource
 from ..models.user import User, UserSchema, UserGroup
 from .. import db
+from .api_utils import init_user
 
 auth = HTTPBasicAuth()
 
@@ -17,25 +18,23 @@ def unauthorized():
 
 @auth.verify_password
 def verify_password(username, password):
-    # if current_app.config.get('DEBUG') == True:
-    #     user = User.query.filter_by(username=username).first()
-    #     g.user = user
-    #     return True
+    if current_app.config.get('DEBUG') == True:
+        user = User.query.filter_by(username=username).first()
+        g.user = user
+        return True
 
     # escape special chars before filtering to protect against LDAP injection
     username = ldap_filter.escape_filter_chars(username)
 
     # connect to LDAP server and bind known user
     con = ldap.initialize(current_app.config.get('LDAP_SERVER'), bytes_mode=False)
+
     try:
         con.simple_bind_s('{}@MPIBR'.format(username), password)
     except ldap.INVALID_CREDENTIALS:
         abort(401, 'Invalid credentials provided')
     except ldap.LDAPError as e:
-        if type(e.message) == dict and e.message.has_key('desc'):
-            abort(502, e.message['desc'])
-        else:
-            abort(502, e)
+        abort(502, e)
 
     # search for authenticating user using LDAP filtering
     user_search_filter = '(|(mail={0})(sAMAccountName={0}))'.format(username)
@@ -63,20 +62,8 @@ def verify_password(username, password):
     # elif (primary_group_id == get_group_token(con, 'LAUR')):
     # elif (primary_group_id == get_group_token(con, 'SCIC')):
 
-    # store user and group in DB if they do not exist already
-    user = User.query.filter_by(username=username).first()
-    user_group = UserGroup.query.filter_by(group_id=primary_group_id).first()
-    if user_group is None:
-        user_group = UserGroup(group_id=primary_group_id)
-    if user is None:
-        user = User(username=username, fullname=fullname, email=user_email)
-        user.groups.append(user_group)
-        db.session.add(user)
-    elif user_group not in user.groups:
-        # remove all user-group relations for this user and add new group(s)
-        del user.groups[:]
-        user.groups.append(user_group)
-    db.session.commit()
+    # initialize user account
+    user = init_user(username, fullname, user_email, primary_group_id)
     # store user in flask's g
     g.user = user
     # authentication passed
